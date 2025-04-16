@@ -1,16 +1,17 @@
+const Sequelize = require('sequelize');
 const sequelize = require('../config/database');
-
+const DataTypes = Sequelize.DataTypes;
 // Import all models
 const Doctor = require('./doctor');
 const Patient = require('./patient');
-const Appointment = require('./appointment');
+const Appointment=require('./appointment');
 const Department = require('./department');
 const MedicalRecord = require('./medicalRecord');
 const Message = require('./message');
-const ContactInfo = require('./ContactInfo');
+const ContactInfo = require('./contactInfo');
 const WorkingHours = require('./workingHours');
 const User = require('./user');
-const Sample = require('./Sample'); // Fixed case to match file name
+const Sample = require('./sample'); // Fixed case to match file name
 const CheckupBenefit = require('./checkupBenefits');
 const CheckupPackage = require('./checkupPackages');
 const LabAppointment = require('./labAppointments');
@@ -43,9 +44,9 @@ const initializeAssociations = () => {
 
     // Appointment associations (appointments table)
     Appointment.belongsTo(Doctor, { foreignKey: 'doctor_id' });
-    Appointment.belongsTo(Patient, { foreignKey: 'patient_id' });
+    // Appointment.belongsTo(Patient, { foreignKey: 'patient_id' });
     Doctor.hasMany(Appointment, { foreignKey: 'doctor_id' });
-    Patient.hasMany(Appointment, { foreignKey: 'patient_id' });
+    // Patient.hasMany(Appointment, { foreignKey: 'patient_id' });
 
     // Medical Record associations
     MedicalRecord.belongsTo(Doctor, { foreignKey: 'doctor_id' });

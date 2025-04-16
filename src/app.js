@@ -25,7 +25,7 @@ const emergencyServicesRoutes = require('./routes/emergencyServices');
 const doctorDepartmentRoutes = require('./routes/doctorDepartment');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
-const patientRoutes = require('./routes/patientRoutes');
+// Removed patientRoutes — not needed anymore
 const departmentRoutes = require('./routes/departmentRoutes');
 const medicalRecordRoutes = require('./routes/medicalRecordRoutes');
 const messageRoutes = require('./routes/messageRoutes');
@@ -38,7 +38,7 @@ const PORT = process.env.PORT || 3000;
 
 // CORS Configuration
 app.use(cors({
-    origin: '*', // Adjust for production (e.g., specific domains)
+    origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
@@ -62,13 +62,13 @@ app.use('/api/emergency-services', emergencyServicesRoutes);
 app.use('/api/doctor-department', doctorDepartmentRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/doctors', doctorRoutes);
-app.use('/api/patients', patientRoutes);
+// Removed: app.use('/api/patients', patientRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/medical-records', medicalRecordRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/contact-info', contactInfoRoutes);
 app.use('/api/working-hours', workingHoursRoutes);
-app.use('/api/samples', sampleRoutes); // Changed from sample-collections to match model
+app.use('/api/samples', sampleRoutes);
 
 // Root route
 app.get('/', (req, res) => {
@@ -90,7 +90,7 @@ app.get('/', (req, res) => {
             doctorDepartment: '/api/doctor-department',
             appointments: '/api/appointments',
             doctors: '/api/doctors',
-            patients: '/api/patients',
+            // Removed patients
             departments: '/api/departments',
             medicalRecords: '/api/medical-records',
             messages: '/api/messages',
@@ -106,7 +106,7 @@ app.use(errorHandler);
 
 // Database connection and server start
 sequelize
-    .sync({ force: false }) // Avoid dropping tables
+    .sync({ force: false }) // true will drop tables
     .then(() => {
         console.log('Database synchronized successfully');
         app.listen(PORT, '172.16.13.138', () => {
