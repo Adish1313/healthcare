@@ -1,228 +1,119 @@
-// controllers/appointmentController.js
 const Appointment = require('../models/appointment');
-const { validationResult } = require('express-validator');
 
-// Get all appointments
+// Create
+exports.createAppointment = async (req, res) => {
+  try {
+    const {
+      id,
+      fullname,
+      email,
+      phone,
+      department,
+      appointment_date,
+      appointment_time,
+      message = ''
+    } = req.body;
+
+    if (!fullname || !email || !phone || !department || !appointment_date || !appointment_time) {
+      return res.status(400).json({ error: 'Please fill in all required fields.' });
+    }
+
+    const newAppointment = await Appointment.create({
+      id,
+      fullname,
+      email,
+      phone,
+      department,
+      appointment_date,
+      appointment_time,
+      message
+    });
+
+    res.status(201).json({ message: 'Appointment created successfully', appointment: newAppointment });
+  } catch (err) {
+    console.error('Create Appointment Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+// Get all
 exports.getAllAppointments = async (req, res) => {
   try {
     const appointments = await Appointment.findAll();
-    res.status(200).json({
-      success: true,
-      count: appointments.length,
-      data: appointments
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Server Error'
-    });
+    console.log('Fetched Appointments:', appointments); // Debug line
+    res.json(appointments);
+  } catch (err) {
+    console.error('Error in getAllAppointments:', err); 
+    res.status(500).json({ error: 'Failed to fetch appointments', details: err.message });
   }
 };
 
-// Get appointment by ID
+
+// Get by ID
 exports.getAppointmentById = async (req, res) => {
   try {
-    const appointment = await Appointment.findByPk(req.params.id);
-    
-    if (!appointment) { 
-      return res.status(404).json({
-        success: false,
-        message: 'Appointment not found'
-      });
-    }
-    
-    res.status(200).json({
-      success: true,
-      data: appointment
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Server Error'
-    });
+    const appointment = await Appointment.findByPk(req.params.id); // Sequelize method
+    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
+    res.json(appointment);
+  } catch (err) {
+    console.error('Error fetching appointment by ID:', err);
+    res.status(500).json({ error: 'Error fetching appointment' });
   }
 };
 
-// Get appointments by doctor ID
-exports.getAppointmentsByDoctor = async (req, res) => {
-  try {
-    const appointments = await Appointment.getByDoctorId(req.params.doctorId);
-    
-    res.status(200).json({
-      success: true,
-      count: appointments.length,
-      data: appointments
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Server Error'
-    });
-  }
+// Dummy data endpoint for appointments
+exports.getDummyAppointments = (req, res) => {
+  const dummyAppointments = [
+    {
+      id: '1',
+      fullname: 'John Doe',
+      email: 'john@example.com',
+      phone: '1234567890',
+      department: 'Cardiology',
+      appointment_date: '2025-04-20',
+      appointment_time: '10:30',
+      message: 'Routine checkup',
+      doctor_id: 'doc1'
+    },
+    {
+      id: '2',
+      fullname: 'Jane Smith',
+      email: 'jane@example.com',
+      phone: '9876543210',
+      department: 'Neurology',
+      appointment_date: '2025-04-21',
+      appointment_time: '14:00',
+      message: 'Migraine consultation',
+      doctor_id: 'doc2'
+    }
+  ];
+  res.json(dummyAppointments);
 };
 
-// Create a new appointment
-exports.createAppointment = async (req, res) => {
-  try {
-    // Check validation results
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
-    }
-    
-    const { doctor_id, appointment_date, appointment_time } = req.body;
-    
-    // Check if the appointment time is available
-    const isAvailable = await Appointment.checkAvailability(doctor_id, appointment_date, appointment_time);
-    
-    if (!isAvailable) {
-      return res.status(400).json({
-        success: false,
-        message: 'This appointment time is already booked'
-      });
-    }
-    
-    const appointment = await Appointment.create(req.body);
-    
-    res.status(201).json({
-      success: true,
-      data: appointment
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Server Error'
-    });
-  }
-};
-
-// Update an appointment
+// Update
 exports.updateAppointment = async (req, res) => {
   try {
-    // Check validation results
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({
-        success: false,
-        errors: errors.array()
-      });
-    }
-    
-    let appointment = await Appointment.getById(req.params.id);
-    
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: 'Appointment not found'
-      });
-    }
-    
-    // If changing date/time/doctor, check availability
-    const { doctor_id, appointment_date, appointment_time } = req.body;
-    if (
-      doctor_id !== appointment.doctor_id ||
-      appointment_date !== appointment.appointment_date ||
-      appointment_time !== appointment.appointment_time
-    ) {
-      const isAvailable = await Appointment.checkAvailability(doctor_id, appointment_date, appointment_time);
-      
-      if (!isAvailable) {
-        return res.status(400).json({
-          success: false,
-          message: 'This appointment time is already booked'
-        });
-      }
-    }
-    
-    appointment = await Appointment.update(req.params.id, req.body);
-    
-    res.status(200).json({
-      success: true,
-      data: appointment
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Server Error'
-    });
+    const appointment = await Appointment.findByPk(req.params.id);
+    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
+
+    await appointment.update(req.body);
+    res.json({ message: 'Appointment updated', appointment });
+  } catch (err) {
+    console.error('Error updating appointment:', err);
+    res.status(500).json({ error: 'Error updating appointment' });
   }
 };
 
-// Update appointment status
-exports.updateAppointmentStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-    
-    // Validate status
-    if (!['scheduled', 'completed', 'cancelled'].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid status value'
-      });
-    }
-    
-    const appointment = await Appointment.getById(req.params.id);
-    
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: 'Appointment not found'
-      });
-    }
-    
-    const result = await Appointment.updateStatus(req.params.id, status);
-    
-    res.status(200).json({
-      success: true,
-      data: result
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Server Error'
-    });
-  }
-};
-
-// Delete an appointment
+// Delete
 exports.deleteAppointment = async (req, res) => {
   try {
-    const appointment = await Appointment.getById(req.params.id);
-    
-    if (!appointment) {
-      return res.status(404).json({
-        success: false,
-        message: 'Appointment not found'
-      });
-    }
-    
-    const deleted = await Appointment.delete(req.params.id);
-    
-    if (!deleted) {
-      return res.status(400).json({
-        success: false,
-        message: 'Unable to delete appointment'
-      });
-    }
-    
-    res.status(200).json({
-      success: true,
-      message: 'Appointment deleted successfully'
-    });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      message: 'Server Error'
-    });
+    const appointment = await Appointment.findByPk(req.params.id);
+    if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
+
+    await appointment.destroy();
+    res.json({ message: 'Appointment deleted' });
+  } catch (err) {
+    console.error('Error deleting appointment:', err);
+    res.status(500).json({ error: 'Error deleting appointment' });
   }
 };

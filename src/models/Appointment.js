@@ -1,3 +1,4 @@
+// src/models/appointment.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -6,22 +7,22 @@ const Appointment = sequelize.define('Appointment', {
     type: DataTypes.INTEGER,
     primaryKey: true,
     autoIncrement: true,
+    allowNull: false,
   },
-  full_name: {
+  fullname: {
     type: DataTypes.STRING,
     allowNull: false,
   },
   email: {
     type: DataTypes.STRING,
     allowNull: false,
-    validate: { isEmail: true }
   },
   phone: {
     type: DataTypes.STRING,
     allowNull: false,
   },
-  doctor_id: {
-    type: DataTypes.INTEGER,
+  department: {
+    type: DataTypes.STRING,
     allowNull: false,
   },
   appointment_date: {
@@ -32,17 +33,17 @@ const Appointment = sequelize.define('Appointment', {
     type: DataTypes.TIME,
     allowNull: false,
   },
-  status: {
-    type: DataTypes.ENUM('scheduled', 'completed', 'cancelled'),
-    allowNull: false,
-    defaultValue: 'scheduled',
+  message: {
+    type: DataTypes.STRING,
+    allowNull: true,
   },
+  doctor_id: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  }
 }, {
   tableName: 'appointments',
   timestamps: true,
-  underscored: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at',
 });
 
 module.exports = Appointment;
