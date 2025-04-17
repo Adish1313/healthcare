@@ -1,5 +1,5 @@
 const Result = require('../models/results');
-const Sample = require('../models/Sample');
+const Sample = require('../models/sample');
 
 const getAllResults = async (req, res) => {
     try {
