@@ -109,9 +109,12 @@ sequelize
     .sync({ force: false }) // true will drop tables
     .then(() => {
         console.log('Database synchronized successfully');
-        app.listen(PORT, '172.16.13.138', () => {
-            console.log(`Server is running on http://172.16.13.138:${PORT}`);
-        });
+        app.listen(3000, '0.0.0.0', () => {
+            console.log('Server running...');
+          });
+        // app.listen(PORT, '172.16.13.138', () => {
+        //     console.log(`Server is running on http://172.16.13.138:${PORT}`);
+        // });
     })
     .catch((err) => {
         console.error('Unable to connect to the database:', err.message);
