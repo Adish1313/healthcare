@@ -31,7 +31,7 @@ const medicalRecordRoutes = require('./routes/medicalRecordRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const contactInfoRoutes = require('./routes/contactInfoRoutes');
 const workingHoursRoutes = require('./routes/workingHoursRoutes');
-const sampleRoutes = require('./routes/Sample');
+// const sampleRoutes = require('./routes/Sample');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
