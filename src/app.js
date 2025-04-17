@@ -68,7 +68,7 @@ app.use('/api/medical-records', medicalRecordRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/contact-info', contactInfoRoutes);
 app.use('/api/working-hours', workingHoursRoutes);
-app.use('/api/samples', sampleRoutes);
+// app.use('/api/samples', sampleRoutes);
 
 // Root route
 app.get('/', (req, res) => {
