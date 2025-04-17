@@ -1,4 +1,4 @@
-const WorkingHours = require('../models/WorkingHours');
+const WorkingHours = require('../models/workinghours');
 
 exports.getAllWorkingHours = async (req, res) => {
   try {

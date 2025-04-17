@@ -1,4 +1,4 @@
-const ContactInfo = require('../models/ContactInfo');
+const ContactInfo = require('../models/contactinfo');
 const sequelize = require('../config/database');
 
 
