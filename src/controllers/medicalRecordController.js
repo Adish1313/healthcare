@@ -1,4 +1,4 @@
-const MedicalRecord = require('../models/MedicalRecord');
+const MedicalRecord = require('../models/medicalrecord');
 
 exports.getAllMedicalRecords = async (req, res) => {
   try {
