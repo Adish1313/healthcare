@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const patientController = require('../controllers/patientController');
+const patientController = require('../controllers/patient');
 const auth = require('../middleware/auth');
 
 // Temporarily removed auth middleware for testing

@@ -1,4 +1,4 @@
-const Sample = require('./Sample');
+const Sample = require('./sample');
 const Result = require('./results');
 const User = require('./user');
 const LabAppointment = require('./labAppointments');
