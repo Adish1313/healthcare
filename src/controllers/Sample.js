@@ -1,4 +1,4 @@
-const Sample = require('../models/Sample');
+const Sample = require('../models/sample');
 
 const getAllSamples = async (req, res) => {
     try {
