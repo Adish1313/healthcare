@@ -2,6 +2,7 @@ const { Sequelize, DataTypes } = require('sequelize');
 const sequelize = require('../config/database');
 
 // Import all models
+// const Payment = require('./payments');
 const Doctor = require('./doctor');
 const Patient = require('./patient');
 const Appointment = require('./appointment');
@@ -91,6 +92,10 @@ const initializeAssociations = () => {
     // Message
     Message.belongsTo(User, { as: 'Sender', foreignKey: 'sender_id' });
     Message.belongsTo(User, { as: 'Receiver', foreignKey: 'receiver_id' });
+   
+//     //Payment
+//     Appointment.hasOne(Payment, { foreignKey: 'appointment_id' });
+// Payment.belongsTo(Appointment, { foreignKey: 'appointment_id' });
 
     // NOTE: These models currently have no associations defined
     // CheckupBenefit, LabService, SpecializedProgram, VaccinationProcess, EmergencyService
@@ -100,7 +105,6 @@ const initializeAssociations = () => {
 initializeAssociations();
 
 module.exports = {
-    sequelize,
     Sequelize,
     Doctor,
     Patient,
@@ -124,5 +128,6 @@ module.exports = {
     VaccinationService,
     Vaccine,
     EmergencyService,
-    DoctorDepartment,
+    DoctorDepartment
+
 };

@@ -1,6 +1,7 @@
 const Appointment = require('../models/appointment');
+// const Payment = require('../models/payments'); // Include Payment model
 
-// Create
+// Create Appointment
 exports.createAppointment = async (req, res) => {
   try {
     const {
@@ -36,11 +37,18 @@ exports.createAppointment = async (req, res) => {
   }
 };
 
-// Get all
+// Get All Appointments with Payment Info
 exports.getAllAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.findAll();
-    console.log('Fetched Appointments:', appointments); // Debug line
+    const appointments = await Appointment.findAll({
+      include: [
+        {
+          model: Payment,
+          attributes: ['status', 'amount', 'currency', 'stripePaymentIntentId', 'createdAt']
+        }
+      ]
+    });
+
     res.json(appointments);
   } catch (err) {
     console.error('Error in getAllAppointments:', err); 
@@ -48,11 +56,18 @@ exports.getAllAppointments = async (req, res) => {
   }
 };
 
-
-// Get by ID
+// Get Appointment by ID with Payment Info
 exports.getAppointmentById = async (req, res) => {
   try {
-    const appointment = await Appointment.findByPk(req.params.id); // Sequelize method
+    const appointment = await Appointment.findByPk(req.params.id, {
+      include: [
+        {
+          model: Payment,
+          attributes: ['status', 'amount', 'currency', 'stripePaymentIntentId', 'createdAt']
+        }
+      ]
+    });
+
     if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
     res.json(appointment);
   } catch (err) {
@@ -61,7 +76,7 @@ exports.getAppointmentById = async (req, res) => {
   }
 };
 
-// Dummy data endpoint for appointments
+// Dummy Data for Testing
 exports.getDummyAppointments = (req, res) => {
   const dummyAppointments = [
     {
@@ -90,7 +105,7 @@ exports.getDummyAppointments = (req, res) => {
   res.json(dummyAppointments);
 };
 
-// Update
+// Update Appointment
 exports.updateAppointment = async (req, res) => {
   try {
     const appointment = await Appointment.findByPk(req.params.id);
@@ -104,7 +119,7 @@ exports.updateAppointment = async (req, res) => {
   }
 };
 
-// Delete
+// Delete Appointment
 exports.deleteAppointment = async (req, res) => {
   try {
     const appointment = await Appointment.findByPk(req.params.id);
