@@ -1,5 +1,5 @@
 const Appointment = require('../models/appointment');
-const Payment = require('../models/payments'); // Include Payment model
+// const Payment = require('../models/payments'); // Include Payment model
 
 // Create Appointment
 exports.createAppointment = async (req, res) => {
