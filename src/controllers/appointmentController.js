@@ -1,6 +1,4 @@
 const Appointment = require('../models/appointment');
-// const Payment = require('../models/payments'); // (Removed as payment is not needed for appointments)
-
 
 // Create Appointment
 exports.createAppointment = async (req, res) => {
@@ -38,18 +36,10 @@ exports.createAppointment = async (req, res) => {
   }
 };
 
-// Get All Appointments with Payment Info
+// Get All Appointments
 exports.getAllAppointments = async (req, res) => {
   try {
-    const appointments = await Appointment.findAll({
-      include: [
-        {
-          model: Payment,
-          attributes: ['status', 'amount', 'currency', 'stripePaymentIntentId', 'createdAt']
-        }
-      ]
-    });
-
+    const appointments = await Appointment.findAll();
     res.json(appointments);
   } catch (err) {
     console.error('Error in getAllAppointments:', err); 
@@ -57,17 +47,10 @@ exports.getAllAppointments = async (req, res) => {
   }
 };
 
-// Get Appointment by ID with Payment Info
+// Get Appointment by ID
 exports.getAppointmentById = async (req, res) => {
   try {
-    const appointment = await Appointment.findByPk(req.params.id, {
-      include: [
-        {
-          model: Payment,
-          attributes: ['status', 'amount', 'currency', 'stripePaymentIntentId', 'createdAt']
-        }
-      ]
-    });
+    const appointment = await Appointment.findByPk(req.params.id);
 
     if (!appointment) return res.status(404).json({ error: 'Appointment not found' });
     res.json(appointment);
