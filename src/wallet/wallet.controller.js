@@ -127,6 +127,43 @@ const walletController = {
     } catch (error) {
       return res.status(400).json({ message: error.message });
     }
+  },
+
+  // Get detailed wallet balance with recent transactions
+  getDetailedWalletBalance: async (req, res) => {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    try {
+      const walletDetails = await new WalletService().getDetailedWalletBalance(email);
+      return res.status(200).json(walletDetails);
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
+  },
+
+  // Auto-deduct money from patient wallet for appointment
+  autoDeductForAppointment: async (req, res) => {
+    const { email, doctorId, amount, appointmentId } = req.body;
+    
+    if (!email || !doctorId || !amount) {
+      return res.status(400).json({ 
+        message: 'Email, doctorId, and amount are required' 
+      });
+    }
+    
+    try {
+      const result = await new WalletService().autoDeductForAppointment(
+        email, 
+        doctorId, 
+        parseFloat(amount), 
+        appointmentId
+      );
+      return res.status(200).json(result);
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
   }
 };
 

@@ -2,7 +2,7 @@ const AdminWallet = require('../models/adminWallet.model');
 const DoctorWallet = require('../models/doctorWallet.model');
 const PatientWallet = require('../models/patientWallet.model');
 const jwt = require('jsonwebtoken');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY || 'sk_test_your_key');
+const stripe = require('stripe')('sk_test_51RF8S1PDMCfPLiP4EiQhKcxzF0CHI2eDuU4clkFCbb5l8PRZ2gJOAASfpInq6t9rlzoOyQYuEOGPuVLVFbbB801V009iKITh4a');
 
 class WalletService {
   constructor() {
@@ -218,26 +218,22 @@ class WalletService {
 
   async createStripePaymentIntent(email, amount) {
     try {
-      const patient = await this.patientWallet.findOne({ where: { email } });
-      if (!patient) throw new Error('Patient not found');
-
       // Create a payment intent
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Stripe requires amount in cents
         currency: 'inr',
-        metadata: {
-          email: email,
-          type: 'wallet_topup'
-        }
+        metadata: { email },
+        description: `Wallet top-up for ${email}`
       });
 
       return {
         clientSecret: paymentIntent.client_secret,
-        amount: amount
+        amount: amount,
+        publishableKey: 'pk_test_51RF8S1PDMCfPLiP4MURblNRlBlOH1b78WafGCWw5SdZEajjSdWv38SlEci1IMPmY18Ij5V174vBoiCIwkXKTv2uO00aW2X9ymG'
       };
     } catch (error) {
       console.error('Create payment intent error:', error);
-      throw new Error(error.message || 'Failed to create payment intent');
+      throw new Error(error.message || 'Payment intent creation failed');
     }
   }
 
@@ -246,51 +242,186 @@ class WalletService {
       if (event.type === 'payment_intent.succeeded') {
         const paymentIntent = event.data.object;
         const email = paymentIntent.metadata.email;
-        const amount = paymentIntent.amount / 100; // Convert from cents to actual currency
+        const amount = paymentIntent.amount / 100; // Convert from cents
 
-        // Add money to wallet
+        // Add money to user's wallet
         await this.addMoney(email, amount);
-        
-        return { success: true, message: 'Payment processed successfully' };
+
+        return { message: 'Payment processed successfully' };
       }
       
-      return { success: true, message: 'Event received but not processed' };
+      return { message: 'Event processed' };
     } catch (error) {
       console.error('Webhook handling error:', error);
-      throw new Error('Webhook processing failed');
+      throw new Error(error.message || 'Webhook processing failed');
+    }
+  }
+
+  // Auto-deduct money from patient wallet for appointment
+  async autoDeductForAppointment(email, doctorId, amount, appointmentId) {
+    try {
+      const patient = await this.patientWallet.findOne({ where: { email } });
+      if (!patient) throw new Error('Patient wallet not found');
+      if (patient.balance < amount) throw new Error('Insufficient balance');
+
+      const adminShare = amount * 0.3;
+      const doctorShare = amount * 0.7;
+
+      // Create transaction record
+      const transactionId = `APPT-${appointmentId || Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const timestamp = new Date().toISOString();
+      
+      // Update patient wallet
+      const patientTransactions = patient.transactions || [];
+      patientTransactions.push({
+        id: transactionId,
+        type: 'debit',
+        amount: amount,
+        description: `Auto-payment for appointment${appointmentId ? ` #${appointmentId}` : ''} with Doctor ID: ${doctorId}`,
+        timestamp: timestamp
+      });
+      
+      patient.transactions = patientTransactions;
+      patient.balance -= amount;
+      await patient.save();
+
+      // Update admin wallet
+      let admin = await this.adminWallet.findOne({ where: { id: 1 } });
+      if (!admin) {
+        // Create admin wallet if it doesn't exist
+        await this.adminWallet.create({
+          id: 1,
+          balance: adminShare,
+          transactions: [{
+            id: `${transactionId}-ADMIN`,
+            type: 'credit',
+            amount: adminShare,
+            description: `Commission from appointment${appointmentId ? ` #${appointmentId}` : ''} by ${email} with Doctor ID: ${doctorId}`,
+            timestamp: timestamp
+          }]
+        });
+      } else {
+        const adminTransactions = admin.transactions || [];
+        adminTransactions.push({
+          id: `${transactionId}-ADMIN`,
+          type: 'credit',
+          amount: adminShare,
+          description: `Commission from appointment${appointmentId ? ` #${appointmentId}` : ''} by ${email} with Doctor ID: ${doctorId}`,
+          timestamp: timestamp
+        });
+        admin.transactions = adminTransactions;
+        admin.balance += adminShare;
+        await admin.save();
+      }
+
+      // Update doctor wallet
+      let doctor = await this.doctorWallet.findOne({ where: { doctorId } });
+      if (!doctor) {
+        // Create doctor wallet if it doesn't exist
+        await this.doctorWallet.create({
+          doctorId,
+          balance: doctorShare,
+          transactions: [{
+            id: `${transactionId}-DOC`,
+            type: 'credit',
+            amount: doctorShare,
+            description: `Payment received${appointmentId ? ` for appointment #${appointmentId}` : ''} from patient ${email}`,
+            timestamp: timestamp
+          }]
+        });
+      } else {
+        const doctorTransactions = doctor.transactions || [];
+        doctorTransactions.push({
+          id: `${transactionId}-DOC`,
+          type: 'credit',
+          amount: doctorShare,
+          description: `Payment received${appointmentId ? ` for appointment #${appointmentId}` : ''} from patient ${email}`,
+          timestamp: timestamp
+        });
+        doctor.transactions = doctorTransactions;
+        doctor.balance += doctorShare;
+        await doctor.save();
+      }
+
+      return { 
+        message: 'Payment processed successfully',
+        transactionId,
+        patientBalance: patient.balance
+      };
+    } catch (error) {
+      console.error('Auto-deduct payment error:', error);
+      throw new Error(error.message || 'Payment processing failed');
+    }
+  }
+
+  // Get detailed wallet balance with recent transactions
+  async getDetailedWalletBalance(email) {
+    try {
+      const patient = await this.patientWallet.findOne({ where: { email } });
+      
+      if (!patient) {
+        throw new Error('Patient wallet not found');
+      }
+      
+      // Get recent transactions
+      const recentTransactions = patient.transactions || [];
+      
+      return {
+        email: patient.email,
+        balance: patient.balance,
+        recentTransactions: recentTransactions.slice(-5).reverse() // Get last 5 transactions in reverse order
+      };
+    } catch (error) {
+      console.error('Get detailed wallet balance error:', error);
+      throw new Error(error.message || 'Failed to retrieve wallet balance');
     }
   }
 
   async getPatientHistory(email) {
     try {
-      const wallet = await this.patientWallet.findOne({ where: { email } });
-      if (!wallet) throw new Error('Patient wallet not found');
-      return wallet.transactions || [];
+      const patient = await this.patientWallet.findOne({ where: { email } });
+      if (!patient) throw new Error('Patient wallet not found');
+      
+      return {
+        email: patient.email,
+        balance: patient.balance,
+        transactions: (patient.transactions || []).reverse()
+      };
     } catch (error) {
       console.error('Get patient history error:', error);
-      throw new Error('Error fetching patient history');
+      throw new Error(error.message || 'Failed to retrieve patient history');
     }
   }
 
   async getDoctorHistory(doctorId) {
     try {
-      const wallet = await this.doctorWallet.findOne({ where: { doctorId } });
-      if (!wallet) throw new Error('Doctor wallet not found');
-      return wallet.transactions || [];
+      const doctor = await this.doctorWallet.findOne({ where: { doctorId } });
+      if (!doctor) throw new Error('Doctor wallet not found');
+      
+      return {
+        doctorId: doctor.doctorId,
+        balance: doctor.balance,
+        transactions: (doctor.transactions || []).reverse()
+      };
     } catch (error) {
       console.error('Get doctor history error:', error);
-      throw new Error('Error fetching doctor history');
+      throw new Error(error.message || 'Failed to retrieve doctor history');
     }
   }
 
   async getAdminHistory() {
     try {
-      const wallet = await this.adminWallet.findOne({ where: { id: 1 } }); // Assuming admin id is 1
-      if (!wallet) throw new Error('Admin wallet not found');
-      return wallet.transactions || [];
+      const admin = await this.adminWallet.findOne({ where: { id: 1 } });
+      if (!admin) throw new Error('Admin wallet not found');
+      
+      return {
+        id: admin.id,
+        balance: admin.balance,
+        transactions: (admin.transactions || []).reverse()
+      };
     } catch (error) {
       console.error('Get admin history error:', error);
-      throw new Error('Error fetching admin history');
+      throw new Error(error.message || 'Failed to retrieve admin history');
     }
   }
 
@@ -301,7 +432,7 @@ class WalletService {
       return { balance: wallet.balance };
     } catch (error) {
       console.error('Get wallet balance error:', error);
-      throw new Error('Error fetching wallet balance');
+      throw new Error(error.message || 'Error fetching wallet balance');
     }
   }
 }
