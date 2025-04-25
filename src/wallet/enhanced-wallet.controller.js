@@ -141,6 +141,43 @@ const enhancedWalletController = {
     }
   },
 
+  // Get detailed wallet balance with recent transactions
+  getDetailedWalletBalance: async (req, res) => {
+    const { email } = req.query;
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+    try {
+      const walletDetails = await walletService.getDetailedWalletBalance(email);
+      return res.status(200).json(walletDetails);
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
+  },
+
+  // Auto-deduct money from patient wallet for appointment
+  autoDeductForAppointment: async (req, res) => {
+    const { email, doctorId, amount, appointmentId } = req.body;
+    
+    if (!email || !doctorId || !amount || !appointmentId) {
+      return res.status(400).json({ 
+        message: 'Email, doctorId, amount, and appointmentId are required' 
+      });
+    }
+    
+    try {
+      const result = await walletService.autoDeductForAppointment(
+        email, 
+        doctorId, 
+        parseFloat(amount), 
+        appointmentId
+      );
+      return res.status(200).json(result);
+    } catch (error) {
+      return res.status(400).json({ message: error.message });
+    }
+  },
+
   // Transfer funds between wallets
   transferFunds: async (req, res) => {
     const { fromType, fromId, toType, toId, amount, description } = req.body;

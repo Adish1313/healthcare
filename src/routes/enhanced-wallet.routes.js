@@ -75,6 +75,25 @@ router.get('/admin-history',
   enhancedWalletController.getAdminHistory
 );
 
+// Detailed wallet balance route
+router.get('/detailed-balance', 
+  [
+    query('email').isEmail().withMessage('Valid email is required')
+  ],
+  validate,
+  enhancedWalletController.getDetailedWalletBalance
+);
+
+// Auto-deduct for appointment route
+router.post('/auto-deduct', 
+  [
+    body('email').isEmail().withMessage('Valid email is required'),
+    body('appointmentId').isInt().withMessage('Valid appointment ID is required')
+  ],
+  validate,
+  enhancedWalletController.autoDeductForAppointment
+);
+
 // Funds transfer route
 router.post('/transfer', 
   [

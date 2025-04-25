@@ -3,7 +3,7 @@ const DoctorWallet = require('../models/doctorWallet.model');
 const PatientWallet = require('../models/patientWallet.model');
 const Transaction = require('./transaction.model');
 const jwt = require('jsonwebtoken');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = require('stripe')('sk_test_51RF8S1PDMCfPLiP4EiQhKcxzF0CHI2eDuU4clkFCbb5l8PRZ2gJOAASfpInq6t9rlzoOyQYuEOGPuVLVFbbB801V009iKITh4a');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
 
@@ -312,7 +312,8 @@ class EnhancedWalletService {
 
       return {
         clientSecret: paymentIntent.client_secret,
-        amount: amount
+        amount: amount,
+        publishableKey: 'pk_test_51RF8S1PDMCfPLiP4MURblNRlBlOH1b78WafGCWw5SdZEajjSdWv38SlEci1IMPmY18Ij5V174vBoiCIwkXKTv2uO00aW2X9ymG'
       };
     } catch (error) {
       console.error('Create payment intent error:', error);
@@ -553,6 +554,198 @@ class EnhancedWalletService {
       await transaction.rollback();
       console.error('Transfer funds error:', error);
       throw new Error(error.message || 'Transfer failed');
+    }
+  }
+
+  async autoDeductForAppointment(email, doctorId, amount, appointmentId) {
+    const transaction = await sequelize.transaction();
+    
+    try {
+      const patient = await this.patientWallet.findOne({ 
+        where: { email },
+        transaction
+      });
+      
+      if (!patient) {
+        await transaction.rollback();
+        throw new Error('Patient wallet not found');
+      }
+      
+      if (patient.balance < amount) {
+        await transaction.rollback();
+        throw new Error('Insufficient balance');
+      }
+
+      const adminShare = amount * 0.3;
+      const doctorShare = amount * 0.7;
+
+      // Create transaction record
+      const transactionId = `APPT-${appointmentId}-${Date.now()}`;
+      
+      // Update patient wallet
+      const patientTransactions = patient.transactions || [];
+      patientTransactions.push({
+        id: transactionId,
+        type: 'debit',
+        amount: amount,
+        description: `Auto-payment for appointment #${appointmentId} with Doctor ID: ${doctorId}`,
+        timestamp: new Date().toISOString()
+      });
+      
+      patient.transactions = patientTransactions;
+      patient.balance -= amount;
+      await patient.save({ transaction });
+
+      // Record transaction in transactions table
+      await this.transaction.create({
+        id: transactionId,
+        type: 'debit',
+        amount: amount,
+        description: `Auto-payment for appointment #${appointmentId} with Doctor ID: ${doctorId}`,
+        senderType: 'patient',
+        senderId: email,
+        receiverType: 'doctor',
+        receiverId: doctorId.toString(),
+        status: 'completed',
+        metadata: { appointmentId }
+      }, { transaction });
+
+      // Update admin wallet
+      let admin = await this.adminWallet.findOne({ 
+        where: { id: 1 },
+        transaction
+      });
+      
+      if (!admin) {
+        admin = await this.adminWallet.create({
+          id: 1,
+          balance: adminShare,
+          transactions: [{
+            id: `${transactionId}-ADMIN`,
+            type: 'credit',
+            amount: adminShare,
+            description: `Commission from appointment #${appointmentId} by ${email} with Doctor ID: ${doctorId}`,
+            timestamp: new Date().toISOString()
+          }]
+        }, { transaction });
+      } else {
+        const adminTransactions = admin.transactions || [];
+        adminTransactions.push({
+          id: `${transactionId}-ADMIN`,
+          type: 'credit',
+          amount: adminShare,
+          description: `Commission from appointment #${appointmentId} by ${email} with Doctor ID: ${doctorId}`,
+          timestamp: new Date().toISOString()
+        });
+        
+        admin.transactions = adminTransactions;
+        admin.balance += adminShare;
+        await admin.save({ transaction });
+      }
+
+      // Record admin transaction
+      await this.transaction.create({
+        id: `${transactionId}-ADMIN`,
+        type: 'credit',
+        amount: adminShare,
+        description: `Commission from appointment #${appointmentId} by ${email} with Doctor ID: ${doctorId}`,
+        senderType: 'patient',
+        senderId: email,
+        receiverType: 'admin',
+        receiverId: '1',
+        status: 'completed',
+        metadata: { appointmentId }
+      }, { transaction });
+
+      // Update doctor wallet
+      let doctor = await this.doctorWallet.findOne({ 
+        where: { doctorId },
+        transaction
+      });
+      
+      if (!doctor) {
+        doctor = await this.doctorWallet.create({
+          doctorId,
+          balance: doctorShare,
+          transactions: [{
+            id: `${transactionId}-DOC`,
+            type: 'credit',
+            amount: doctorShare,
+            description: `Payment received for appointment #${appointmentId} from patient ${email}`,
+            timestamp: new Date().toISOString()
+          }]
+        }, { transaction });
+      } else {
+        const doctorTransactions = doctor.transactions || [];
+        doctorTransactions.push({
+          id: `${transactionId}-DOC`,
+          type: 'credit',
+          amount: doctorShare,
+          description: `Payment received for appointment #${appointmentId} from patient ${email}`,
+          timestamp: new Date().toISOString()
+        });
+        
+        doctor.transactions = doctorTransactions;
+        doctor.balance += doctorShare;
+        await doctor.save({ transaction });
+      }
+
+      // Record doctor transaction
+      await this.transaction.create({
+        id: `${transactionId}-DOC`,
+        type: 'credit',
+        amount: doctorShare,
+        description: `Payment received for appointment #${appointmentId} from patient ${email}`,
+        senderType: 'patient',
+        senderId: email,
+        receiverType: 'doctor',
+        receiverId: doctorId.toString(),
+        status: 'completed',
+        metadata: { appointmentId }
+      }, { transaction });
+
+      await transaction.commit();
+
+      return { 
+        message: 'Payment processed successfully',
+        transactionId,
+        patientBalance: patient.balance
+      };
+    } catch (error) {
+      await transaction.rollback();
+      console.error('Auto-deduct payment error:', error);
+      throw new Error(error.message || 'Payment processing failed');
+    }
+  }
+
+  async getDetailedWalletBalance(email) {
+    try {
+      const patient = await this.patientWallet.findOne({ where: { email } });
+      
+      if (!patient) {
+        throw new Error('Patient wallet not found');
+      }
+      
+      // Get recent transactions
+      const recentTransactions = await this.transaction.findAll({
+        where: {
+          [Op.or]: [
+            { senderType: 'patient', senderId: email },
+            { receiverType: 'patient', receiverId: email }
+          ]
+        },
+        order: [['createdAt', 'DESC']],
+        limit: 5
+      });
+      
+      return {
+        email: patient.email,
+        balance: patient.balance,
+        recentTransactions: recentTransactions
+      };
+    } catch (error) {
+      console.error('Get detailed wallet balance error:', error);
+      throw new Error(error.message || 'Failed to retrieve wallet balance');
     }
   }
 }
