@@ -13,7 +13,7 @@ router.get('/patient-history', walletController.getPatientHistory);
 router.get('/doctor-history', walletController.getDoctorHistory);
 router.get('/admin-history', walletController.getAdminHistory);
 
-// Stripe integration routes
+// Stripe integration routes 
 router.post('/create-payment-intent', walletController.createPaymentIntent);
 router.post('/webhook', express.raw({ type: 'application/json' }), walletController.handleStripeWebhook);
 
