@@ -66,49 +66,7 @@ app.use(express.json());
 app.use('/api/wallet/webhook', express.raw({ type: 'application/json' }));
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
-// Stripe webhook handler
-app.post('/api/stripe/webhook', async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
-  } catch (err) {
-    console.error('⚠️ Webhook signature verification failed:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
-  switch (event.type) {
-    case 'checkout.session.completed': {
-      const session = event.data.object;
-      const { client_reference_id, amount_total, customer } = session;
-      const wallet = await PatientWallet.findOneAndUpdate(
-        { userId: client_reference_id },
-        { $inc: { balance: amount_total / 100 } },
-        { new: true, upsert: true }
-      );
-      await Transaction.create({
-        wallet: wallet._id,
-        type: 'payment',
-        amount: amount_total / 100,
-        stripeCustomer: customer,
-        stripeSessionId: session.id,
-      });
-      break;
-    }
-    case 'payment_intent.succeeded': {
-      const intent = event.data.object;
-      await Transaction.create({
-        type: 'payment_intent',
-        amount: intent.amount_received / 100,
-        stripeIntentId: intent.id,
-        status: intent.status,
-      });
-      break;
-    }
-    default:
-      console.log(`Unhandled event type ${event.type}`);
-  }
-  res.json({ received: true });
-});
+// Stripe webhook is handled in the stripe.controller.js
 
 // Routes
 app.use('/api/checkup-benefits', checkupBenefitsRoutes);

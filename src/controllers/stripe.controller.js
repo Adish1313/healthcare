@@ -8,7 +8,18 @@ module.exports = {
   async createCheckoutSession(req, res) {
     try {
       const { email, amount } = req.body;
+      
+      // Validate required fields
+      if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+      }
+      
+      if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+        return res.status(400).json({ error: 'Valid amount is required' });
+      }
 
+      console.log(`🔔 Creating checkout session for ${email} with amount ${amount}`);
+      
       const session = await stripe.checkout.sessions.create({
         payment_method_types: ['card'],
         mode: 'payment',
@@ -18,22 +29,37 @@ module.exports = {
               currency: 'usd',
               product_data: {
                 name: 'Wallet Top-Up',
+                description: `Add funds to your healthcare wallet (${email})`,
               },
-              unit_amount: amount * 100, // cents
+              unit_amount: Math.round(parseFloat(amount) * 100), // cents, ensure it's a valid integer
             },
             quantity: 1,
           },
         ],
-        success_url: `${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+        success_url: `${process.env.CLIENT_URL}/success?session_id={CHECKOUT_SESSION_ID}&email=${encodeURIComponent(email)}`,
         cancel_url: `${process.env.CLIENT_URL}/cancel`,
         customer_email: email,
-        metadata: { email, amount }
+        // Critical: Always include metadata for webhook processing
+        metadata: { 
+          email: email, 
+          amount: parseFloat(amount).toFixed(2),
+          timestamp: new Date().toISOString()
+        }
       });
 
-      res.json({ url: session.url, sessionId: session.id });
+      console.log(`✅ Checkout session created: ${session.id}`);
+      res.json({ 
+        url: session.url, 
+        sessionId: session.id,
+        success: true
+      });
     } catch (error) {
-      console.error('Error in createCheckoutSession:', error);
-      res.status(500).json({ error: 'Failed to create checkout session' });
+      console.error('❌ Error in createCheckoutSession:', error);
+      res.status(500).json({ 
+        error: 'Failed to create checkout session', 
+        message: error.message,
+        success: false
+      });
     }
   },
 
@@ -69,19 +95,25 @@ module.exports = {
   },
   
   async webhook(req, res) {
+    console.log('🔔 Webhook received');
     const sig = req.headers['stripe-signature'];
 
     let event;
     try {
       event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+      console.log(`✅ Webhook verified: ${event.type}`);
     } catch (err) {
       console.error('⚠️ Webhook signature verification failed:', err.message);
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     try {
+      // Log the event data for debugging
+      console.log(`📝 Processing event: ${event.type}`);
+      console.log('Event data:', JSON.stringify(event.data.object, null, 2));
+      
       // Store the Stripe event in our database regardless of type
-      await StripePayment.create({
+      const stripePayment = await StripePayment.create({
         stripe_event_id: event.id,
         stripe_object_id: event.data.object.id,
         event_type: event.type,
@@ -95,32 +127,50 @@ module.exports = {
         metadata: event.data.object.metadata || {},
         rawData: JSON.stringify(event)
       });
+      console.log(`✅ Stripe payment record created: ${stripePayment.id}`);
 
       // Handle specific event types
       switch (event.type) {
         case 'checkout.session.completed': {
+          console.log('💰 Processing checkout.session.completed');
           const session = event.data.object;
+          
+          // Check if we have the necessary metadata
+          if (!session.metadata || !session.metadata.email) {
+            console.error('❌ Missing email in session metadata:', session.id);
+            break;
+          }
+          
           const email = session.metadata.email;
           const amount = parseFloat(session.metadata.amount);
+          
+          console.log(`📧 User email: ${email}`);
+          console.log(`💲 Amount: ${amount}`);
           
           // Find or create the patient wallet
           let wallet = await PatientWallet.findOne({ where: { email } });
           if (!wallet) {
+            console.log(`🆕 Creating new wallet for user: ${email}`);
             wallet = await PatientWallet.create({
               email,
               balance: 0,
               transactions: []
             });
+          } else {
+            console.log(`🔍 Found existing wallet for user: ${email}`);
           }
 
           // Update wallet balance
-          const newBalance = parseFloat(wallet.balance) + amount;
+          const oldBalance = parseFloat(wallet.balance);
+          const newBalance = oldBalance + amount;
           wallet.balance = newBalance;
+          console.log(`💹 Updating balance: ${oldBalance} + ${amount} = ${newBalance}`);
           
           // Add transaction to wallet's transaction array
           const transactions = wallet.transactions;
+          const transactionId = uuidv4();
           transactions.push({
-            id: uuidv4(),
+            id: transactionId,
             type: 'credit',
             amount,
             description: 'Stripe wallet top-up',
@@ -130,10 +180,11 @@ module.exports = {
           wallet.transactions = transactions;
           
           await wallet.save();
+          console.log(`✅ Wallet updated successfully: ${email}`);
           
           // Create a standalone transaction record
-          await Transaction.create({
-            id: uuidv4(),
+          const transaction = await Transaction.create({
+            id: transactionId,
             type: 'credit',
             amount,
             description: 'Stripe wallet top-up via Checkout',
@@ -148,68 +199,105 @@ module.exports = {
               stripeEventId: event.id
             }
           });
+          console.log(`✅ Transaction record created: ${transaction.id}`);
           break;
         }
         
         case 'payment_intent.succeeded': {
+          console.log('💰 Processing payment_intent.succeeded');
           const intent = event.data.object;
-          // If this payment intent has customer metadata, update their wallet
-          if (intent.metadata && intent.metadata.email) {
-            const email = intent.metadata.email;
-            const amount = intent.amount_received / 100;
-            
-            // Find the wallet
-            const wallet = await PatientWallet.findOne({ where: { email } });
-            if (wallet) {
-              // Update wallet balance
-              wallet.balance = parseFloat(wallet.balance) + amount;
-              
-              // Add transaction to wallet's transaction array
-              const transactions = wallet.transactions;
-              transactions.push({
+          
+          // Check if we have the necessary metadata
+          if (!intent.metadata || !intent.metadata.email) {
+            console.error('❌ Missing email in payment intent metadata:', intent.id);
+            break;
+          }
+          
+          const email = intent.metadata.email;
+          const amount = intent.amount_received / 100;
+          
+          console.log(`📧 User email: ${email}`);
+          console.log(`💲 Amount: ${amount}`);
+          
+          // Find the wallet
+          const wallet = await PatientWallet.findOne({ where: { email } });
+          if (!wallet) {
+            console.error(`❌ No wallet found for user: ${email}`);
+            // Create a wallet if it doesn't exist
+            const newWallet = await PatientWallet.create({
+              email,
+              balance: amount,
+              transactions: [{
                 id: uuidv4(),
                 type: 'credit',
                 amount,
                 description: 'Stripe payment',
                 time: new Date().toISOString(),
                 stripePaymentIntentId: intent.id
-              });
-              wallet.transactions = transactions;
-              
-              await wallet.save();
-            }
+              }]
+            });
+            console.log(`🆕 Created new wallet for user: ${email} with balance: ${amount}`);
+          } else {
+            console.log(`🔍 Found existing wallet for user: ${email}`);
+            // Update wallet balance
+            const oldBalance = parseFloat(wallet.balance);
+            const newBalance = oldBalance + amount;
+            wallet.balance = newBalance;
+            console.log(`💹 Updating balance: ${oldBalance} + ${amount} = ${newBalance}`);
             
-            // Create a standalone transaction record
-            await Transaction.create({
+            // Add transaction to wallet's transaction array
+            const transactions = wallet.transactions;
+            transactions.push({
               id: uuidv4(),
               type: 'credit',
               amount,
-              description: 'Stripe payment via PaymentIntent',
-              senderType: 'system',
-              senderId: 'stripe',
-              receiverType: 'patient',
-              receiverId: email,
-              paymentMethod: 'stripe',
-              status: 'completed',
-              metadata: {
-                stripePaymentIntentId: intent.id,
-                stripeEventId: event.id
-              }
+              description: 'Stripe payment',
+              time: new Date().toISOString(),
+              stripePaymentIntentId: intent.id
             });
+            wallet.transactions = transactions;
+            
+            await wallet.save();
+            console.log(`✅ Wallet updated successfully: ${email}`);
           }
+          
+          // Create a standalone transaction record
+          const transactionId = uuidv4();
+          const transaction = await Transaction.create({
+            id: transactionId,
+            type: 'credit',
+            amount,
+            description: 'Stripe payment via PaymentIntent',
+            senderType: 'system',
+            senderId: 'stripe',
+            receiverType: 'patient',
+            receiverId: email,
+            paymentMethod: 'stripe',
+            status: 'completed',
+            metadata: {
+              stripePaymentIntentId: intent.id,
+              stripeEventId: event.id
+            }
+          });
+          console.log(`✅ Transaction record created: ${transaction.id}`);
           break;
         }
         
         default:
-          console.log(`Unhandled event type ${event.type}`);
+          console.log(`ℹ️ Unhandled event type ${event.type}`);
       }
       
-      res.json({ received: true });
+      console.log('✅ Webhook processing completed successfully');
+      res.json({ received: true, success: true });
     } catch (error) {
-      console.error('Error processing webhook:', error);
+      console.error('❌ Error processing webhook:', error);
+      // Log the full error stack for debugging
+      console.error(error.stack);
+      
       // Still return 200 to Stripe so they don't retry
       res.status(200).json({ 
         received: true, 
+        success: false,
         error: error.message,
         note: 'Webhook received but error processing. Event will not be retried.'
       });

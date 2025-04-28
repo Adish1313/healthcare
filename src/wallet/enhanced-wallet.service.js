@@ -291,9 +291,13 @@ class EnhancedWalletService {
         payment_method: paymentMethodId,
         confirm: true,
         description: `Wallet top-up for ${email}`,
-        metadata: { email }
+        metadata: { 
+          email, 
+          amount: amount.toString(),
+          timestamp: new Date().toISOString()
+        }
       });
-
+  
       return paymentIntent;
     } catch (error) {
       console.error('Stripe payment error:', error);
@@ -301,25 +305,29 @@ class EnhancedWalletService {
     }
   }
 
-  async createStripePaymentIntent(email, amount) {
-    try {
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Stripe requires amount in cents
-        currency: 'inr',
-        metadata: { email },
-        description: `Wallet top-up for ${email}`
-      });
+async createStripePaymentIntent(email, amount) {
+  try {
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Stripe requires amount in cents
+      currency: 'inr',
+      metadata: { 
+        email, 
+        amount: amount.toString(),
+        timestamp: new Date().toISOString()
+      },
+      description: `Wallet top-up for ${email}`
+    });
 
-      return {
-        clientSecret: paymentIntent.client_secret,
-        amount: amount,
-        publishableKey: 'pk_test_51RF8S1PDMCfPLiP4MURblNRlBlOH1b78WafGCWw5SdZEajjSdWv38SlEci1IMPmY18Ij5V174vBoiCIwkXKTv2uO00aW2X9ymG'
-      };
-    } catch (error) {
-      console.error('Create payment intent error:', error);
-      throw new Error(error.message || 'Payment intent creation failed');
-    }
+    return {
+      clientSecret: paymentIntent.client_secret,
+      amount: amount,
+      publishableKey: 'pk_test_51RF8S1PDMCfPLiP4MURblNRlBlOH1b78WafGCWw5SdZEajjSdWv38SlEci1IMPmY18Ij5V174vBoiCIwkXKTv2uO00aW2X9ymG'
+    };
+  } catch (error) {
+    console.error('Create payment intent error:', error);
+    throw new Error(error.message || 'Payment intent creation failed');
   }
+}
 
   async handleStripeWebhook(event) {
     try {
