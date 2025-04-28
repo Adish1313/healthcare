@@ -22,6 +22,7 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 // Import routes
+const stripeRoutes = require('./routes/stripe.routes');
 const checkupBenefitsRoutes = require('./routes/checkupBenefits');
 const checkupPackagesRoutes = require('./routes/checkupPackages');
 const labAppointmentsRoutes = require('./routes/labAppointments');
@@ -46,7 +47,7 @@ const workingHoursRoutes = require('./routes/workingHoursRoutes');
 // const sampleRoutes = require('./routes/Sample');
 const walletRoutes = require('./routes/wallet.routes');
 const enhancedWalletRoutes = require('./routes/enhanced-wallet.routes');
-const stripeRoutes = require('./routes/stripe.routes');
+
 const app = express();
 
 const PORT = process.env.PORT || 3000;
@@ -61,7 +62,7 @@ app.use(cors({
 
 // Middleware
 app.use(express.json());
-
+app.use(express.urlencoded({ extended: true }));
 // Special handling for Stripe webhook
 app.use('/api/wallet/webhook', express.raw({ type: 'application/json' }));
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
