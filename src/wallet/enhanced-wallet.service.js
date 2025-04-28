@@ -210,77 +210,46 @@ class EnhancedWalletService {
     }
   }
 
-  async addMoney(email, amount, paymentMethodId = null) {
-    const transaction = await sequelize.transaction();
-    
-    try {
-      let patient = await this.patientWallet.findOne({ 
-        where: { email },
-        transaction
-      });
-      
-      if (!patient) {
-        patient = await this.patientWallet.create({
-          email,
-          balance: 0,
-          transactions: []
-        }, { transaction });
-      }
+async addMoney(email, amount, paymentMethodId = null) {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    let patient = await this.patientWallet.findOne({ 
+      where: { email },
+      transaction
+    });
 
-      let paymentConfirmation = null;
-      
-      // If payment method ID is provided, process payment through Stripe
-      if (paymentMethodId) {
-        paymentConfirmation = await this.processStripePayment(email, amount, paymentMethodId);
-      }
+    // Yeh log daalo
+    console.log("addMoney called for:", email, "amount:", amount);
 
-      // Create transaction record
-      const transactionId = paymentConfirmation?.id || `ADD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-      const timestamp = new Date().toISOString();
-      
-      const patientTransaction = {
-        id: transactionId,
-        type: 'credit',
-        amount: parseFloat(amount),
-        description: paymentMethodId ? 'Added money via Stripe' : 'Added money to wallet',
-        paymentMethod: paymentMethodId ? 'stripe' : 'manual',
-        timestamp: timestamp
-      };
-      
-      const patientTransactions = patient.transactions || [];
-      patientTransactions.push(patientTransaction);
-      patient.transactions = patientTransactions;
-      patient.balance += parseFloat(amount);
-      await patient.save({ transaction });
-
-      // Record transaction in transactions table
-      await this.transaction.create({
-        id: transactionId,
-        type: 'credit',
-        amount: parseFloat(amount),
-        description: paymentMethodId ? 'Added money via Stripe' : 'Added money to wallet',
-        senderType: 'system',
-        senderId: 'payment',
-        receiverType: 'patient',
-        receiverId: email,
-        paymentMethod: paymentMethodId ? 'stripe' : 'manual',
-        status: 'completed',
-        metadata: paymentConfirmation ? { stripePaymentId: paymentConfirmation.id } : {}
+    if (!patient) {
+      patient = await this.patientWallet.create({
+        email,
+        balance: 0,
+        transactions: []
       }, { transaction });
-
-      await transaction.commit();
-
-      return { 
-        message: 'Money added successfully', 
-        newBalance: patient.balance,
-        transaction: patientTransaction
-      };
-    } catch (error) {
-      await transaction.rollback();
-      console.error('Add money error:', error);
-      throw new Error(error.message || 'Internal server error');
     }
+
+    // ... (baaki code same)
+    await patient.save({ transaction });
+
+    // Yeh log daalo
+    console.log("Patient balance after save:", patient.balance);
+
+    await transaction.commit();
+    console.log("Transaction committed for:", email);
+
+    return { 
+      message: 'Money added successfully', 
+      newBalance: patient.balance,
+      transaction: patientTransaction
+    };
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Add money error:', error);
+    throw new Error(error.message || 'Internal server error');
   }
+}
 
   async processStripePayment(email, amount, paymentMethodId) {
     try {
@@ -329,25 +298,27 @@ async createStripePaymentIntent(email, amount) {
   }
 }
 
-  async handleStripeWebhook(event) {
-    try {
-      if (event.type === 'payment_intent.succeeded') {
-        const paymentIntent = event.data.object;
-        const email = paymentIntent.metadata.email;
-        const amount = paymentIntent.amount / 100; // Convert from cents
+async handleStripeWebhook(event) {
+  try {
+    if (event.type === 'payment_intent.succeeded') {
+      const paymentIntent = event.data.object;
+      const email = paymentIntent.metadata.email;
+      const amount = paymentIntent.amount / 100; // Convert from cents
 
-        // Add money to user's wallet
-        await this.addMoney(email, amount);
+      // Yeh log daalo
+      console.log("Webhook triggered for email:", email, "amount:", amount);
 
-        return { message: 'Payment processed successfully' };
-      }
-      
-      return { message: 'Event processed' };
-    } catch (error) {
-      console.error('Webhook handling error:', error);
-      throw new Error(error.message || 'Webhook processing failed');
+      // Add money to user's wallet
+      await this.addMoney(email, amount);
+
+      return { message: 'Payment processed successfully' };
     }
+    return { message: 'Event processed' };
+  } catch (error) {
+    console.error('Webhook handling error:', error);
+    throw new Error(error.message || 'Webhook processing failed');
   }
+}
 
   async getTransactionHistory(type, id, startDate, endDate, page = 1, limit = 10) {
     try {
