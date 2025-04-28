@@ -16,7 +16,7 @@ const errorHandler = require('./middleware/errorHandler');
 
 // Import sequelize
 const sequelize = require('./config/database');
-
+ 
 // Stripe integration
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -53,7 +53,7 @@ const PORT = process.env.PORT || 3000;
 
 // CORS Configuration
 app.use(cors({
-    origin: ['http://172.16.13.138:3000','http://localhost:8083', 'http://localhost:8082','https://healthoasis-website.vercel.app'],
+    origin: ['http://172.16.13.138:3000','http://localhost:8083', 'http://localhost:8085','http://localhost:8082','https://healthoasis-website.vercel.app'],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
