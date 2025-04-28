@@ -57,9 +57,11 @@ app.use(cors({
     credentials: true
 }));
 
-// ⚡ Handle Stripe webhook raw body BEFORE express.json()
-app.post('/api/wallet/webhook', express.raw({ type: 'application/json' }), require('./routes/wallet-webhook.route'));
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), require('./routes/stripe-webhook.route'));
+// Special handling for webhooks - MUST be before express.json()
+app.post('/api/wallet/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const enhancedWalletController = require('./wallet/enhanced-wallet.controller');
+  enhancedWalletController.handleWebhook(req, res);
+});
 
 // Normal body parsers AFTER webhook routes
 app.use(express.json());

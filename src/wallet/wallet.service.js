@@ -195,13 +195,14 @@ class WalletService {
       // Create a payment intent
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Stripe requires amount in cents
-        currency: 'inr',
+        currency: 'usd',
         payment_method: paymentMethodId,
         confirm: true,
         description: `Wallet top-up for ${email}`,
         metadata: {
           email: email,
-          type: 'wallet_topup'
+          type: 'wallet_topup',
+          amount: amount.toString()
         }
       });
 
@@ -221,8 +222,8 @@ class WalletService {
       // Create a payment intent
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Stripe requires amount in cents
-        currency: 'inr',
-        metadata: { email },
+        currency: 'usd',
+        metadata: { email, amount: amount.toString() },
         description: `Wallet top-up for ${email}`
       });
 

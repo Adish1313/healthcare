@@ -256,7 +256,7 @@ async addMoney(email, amount, paymentMethodId = null) {
       // Create a payment intent
       const paymentIntent = await stripe.paymentIntents.create({
         amount: Math.round(amount * 100), // Stripe requires amount in cents
-        currency: 'inr',
+        currency: 'usd',
         payment_method: paymentMethodId,
         confirm: true,
         description: `Wallet top-up for ${email}`,
@@ -278,7 +278,7 @@ async createStripePaymentIntent(email, amount) {
   try {
     const paymentIntent = await stripe.paymentIntents.create({
       amount: Math.round(amount * 100), // Stripe requires amount in cents
-      currency: 'inr',
+      currency: 'usd',
       metadata: { 
         email, 
         amount: amount.toString(),
