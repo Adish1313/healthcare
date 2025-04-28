@@ -1,23 +1,17 @@
- // Import wallet models
+// Import required packages and models
+const express = require('express');
+const cors = require('cors');
+const sequelize = require('./config/database');
+const errorHandler = require('./middleware/errorHandler');
+
+// Wallet and Stripe models
 const AdminWallet = require('./models/adminWallet.model');
 const DoctorWallet = require('./models/doctorWallet.model');
 const PatientWallet = require('./models/patientWallet.model');
 const Transaction = require('./wallet/transaction.model');
 const StripePayment = require('./models/stripePayment.model');
 
-// Import express
-const express = require('express');
-
-// Import cors
-const cors = require('cors');
-
-// Import error handler
-const errorHandler = require('./middleware/errorHandler');
-
-// Import sequelize
-const sequelize = require('./config/database');
- 
-// Stripe integration
+// Import Stripe
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
@@ -38,38 +32,40 @@ const emergencyServicesRoutes = require('./routes/emergencyServices');
 const doctorDepartmentRoutes = require('./routes/doctorDepartment');
 const appointmentRoutes = require('./routes/appointmentRoutes');
 const doctorRoutes = require('./routes/doctorRoutes');
-// Removed patientRoutes — not needed anymore
 const departmentRoutes = require('./routes/departmentRoutes');
 const medicalRecordRoutes = require('./routes/medicalRecordRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const contactInfoRoutes = require('./routes/contactInfoRoutes');
 const workingHoursRoutes = require('./routes/workingHoursRoutes');
-// const sampleRoutes = require('./routes/Sample');
-const walletRoutes = require('./routes/wallet.routes');
 const enhancedWalletRoutes = require('./routes/enhanced-wallet.routes');
 
+// Create express app
 const app = express();
-
 const PORT = process.env.PORT || 3000;
 
-// CORS Configuration
+// Setup CORS
 app.use(cors({
-    origin: ['http://172.16.13.138:3000','http://localhost:8083', 'http://localhost:8085','http://localhost:8082','https://healthoasis-website.vercel.app'],
+    origin: [
+        'http://172.16.13.138:3000',
+        'http://localhost:8083',
+        'http://localhost:8085',
+        'http://localhost:8082',
+        'https://healthoasis-website.vercel.app'
+    ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true
 }));
 
-// Middleware
+// ⚡ Handle Stripe webhook raw body BEFORE express.json()
+app.post('/api/wallet/webhook', express.raw({ type: 'application/json' }), require('./routes/wallet-webhook.route'));
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), require('./routes/stripe-webhook.route'));
+
+// Normal body parsers AFTER webhook routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-// Special handling for Stripe webhook
-app.use('/api/wallet/webhook', express.raw({ type: 'application/json' }));
-app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
-// Stripe webhook is handled in the stripe.controller.js
-
-// Routes
+// Setup normal routes
 app.use('/api/checkup-benefits', checkupBenefitsRoutes);
 app.use('/api/checkup-packages', checkupPackagesRoutes);
 app.use('/api/lab-appointments', labAppointmentsRoutes);
@@ -85,16 +81,13 @@ app.use('/api/emergency-services', emergencyServicesRoutes);
 app.use('/api/doctor-department', doctorDepartmentRoutes);
 app.use('/api/appointments', appointmentRoutes);
 app.use('/api/doctors', doctorRoutes);
-// Removed: app.use('/api/patients', patientRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/medical-records', medicalRecordRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/contact-info', contactInfoRoutes);
 app.use('/api/working-hours', workingHoursRoutes);
-// app.use('/api/samples', sampleRoutes);
-app.use('/api/wallet', enhancedWalletRoutes); // Using enhanced wallet routes
+app.use('/api/wallet', enhancedWalletRoutes);
 app.use('/api/stripe', stripeRoutes);
-
 
 // Root route
 app.get('/', (req, res) => {
@@ -140,28 +133,27 @@ app.get('/', (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// Setup wallet tables before starting the server
+// 🛠 Setup wallet tables before starting the server
 async function setupWalletTables() {
     try {
         console.log('Setting up wallet tables...');
-        
-        // Sync wallet models
+
         await AdminWallet.sync({ alter: true });
         console.log('AdminWallet table synchronized');
-        
+
         await DoctorWallet.sync({ alter: true });
         console.log('DoctorWallet table synchronized');
-        
+
         await PatientWallet.sync({ alter: true });
         console.log('PatientWallet table synchronized');
 
         await Transaction.sync({ alter: true });
         console.log('Transaction table synchronized');
-        
+
         await StripePayment.sync({ alter: true });
         console.log('StripePayment table synchronized');
 
-        // Create default admin wallet if it doesn't exist
+        // Ensure admin wallet exists
         const adminWallet = await AdminWallet.findOne({ where: { id: 1 } });
         if (!adminWallet) {
             await AdminWallet.create({
@@ -187,13 +179,11 @@ sequelize
         console.log('Database connection established successfully');
         return setupWalletTables();
     })
-    .then(() => {
-        return sequelize.sync({ force: false }); // Sync all models
-    })
+    .then(() => sequelize.sync({ force: false }))
     .then(() => {
         console.log('All database tables synchronized successfully');
         app.listen(PORT, '0.0.0.0', () => {
-            console.log(`Server running on http://0.0.0.0:${PORT}`);
+            console.log(`Server running at http://0.0.0.0:${PORT}`);
         });
     })
     .catch((err) => {
