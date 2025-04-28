@@ -94,6 +94,7 @@ app.use('/api/working-hours', workingHoursRoutes);
 app.use('/api/wallet', enhancedWalletRoutes); // Using enhanced wallet routes
 app.use('/api/stripe', stripeRoutes);
 
+
 // Root route
 app.get('/', (req, res) => {
     res.json({

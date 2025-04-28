@@ -31,7 +31,7 @@ module.exports = {
                 name: 'Wallet Top-Up',
                 description: `Add funds to your healthcare wallet (${email})`,
               },
-              unit_amount: Math.round(parseFloat(amount) * 100), // cents, ensure it's a valid integer
+              unit_amount: Math.round(parseFloat(amount)), // cents, ensure it's a valid integer
             },
             quantity: 1,
           },
