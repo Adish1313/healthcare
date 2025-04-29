@@ -327,7 +327,7 @@ module.exports = {
         line_items: [
           {
             price_data: {
-              currency: 'usd',
+              currency: 'inr',
               product_data: {
                 name: 'Wallet Top-Up',
                 description: `Top-up wallet for ${email}`
