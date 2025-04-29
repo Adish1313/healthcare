@@ -57,7 +57,11 @@ app.use(cors({
     credentials: true
 }));
 
-// Special handling for webhooks - MUST be before express.json()
+// Special handling for Stripe and wallet webhooks - MUST be before any body parser
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const stripeController = require('./controllers/stripe.controller');
+  stripeController.webhook(req, res);
+});
 app.post('/api/wallet/webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const enhancedWalletController = require('./wallet/enhanced-wallet.controller');
   enhancedWalletController.handleWebhook(req, res);
@@ -90,7 +94,7 @@ app.use('/api/contact-info', contactInfoRoutes);
 app.use('/api/working-hours', workingHoursRoutes);
 app.use('/api/wallet', enhancedWalletRoutes);
 app.use('/api/stripe', stripeRoutes);
-
+app.use('/api/video-call', require('./routes/videoCall.routes'));
 // Root route
 app.get('/', (req, res) => {
     res.json({
