@@ -238,6 +238,10 @@ async addMoney(email, amount, paymentMethodId = null, currency = 'inr') {
         finalAmount = Math.round(parseFloat(amount) * conversionRate);
         console.log(`Fallback: Converted USD ${amount} to INR ${finalAmount} at rate ${conversionRate}`);
       }
+    } else if (currency && currency.toLowerCase() === 'inr') {
+      finalAmount = parseFloat(amount);
+      conversionRate = 1;
+      console.log(`INR detected: Using amount as-is: ${finalAmount}`);
     }
 
     if (!patient) {
