@@ -253,16 +253,23 @@ async addMoney(email, amount, paymentMethodId = null) {
 
   async processStripePayment(email, amount, paymentMethodId) {
     try {
+      const axios = require('axios');
+      // Fetch the latest USD to INR conversion rate
+      const res = await axios.get('https://api.exchangerate-api.com/v4/latest/USD');
+      const usdToInrRate = res.data && res.data.rates && res.data.rates.INR ? res.data.rates.INR : 88.6; // fallback to 88.6 if not available
+      // Convert USD amount to INR
+      const inrAmount = Math.round(parseFloat(amount) * usdToInrRate);
       // Create a payment intent
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(amount * 100), // Stripe requires amount in cents
-        currency: 'usd',
+        amount: inrAmount, // Stripe requires amount in INR paise (smallest unit)
+        currency: 'inr',
         payment_method: paymentMethodId,
         confirm: true,
         description: `Wallet top-up for ${email}`,
         metadata: { 
           email, 
           amount: amount.toString(),
+          usdToInrRate: usdToInrRate.toString(),
           timestamp: new Date().toISOString()
         }
       });
@@ -276,12 +283,20 @@ async addMoney(email, amount, paymentMethodId = null) {
 
 async createStripePaymentIntent(email, amount) {
   try {
+    const axios = require('axios');
+    // Fetch the latest USD to INR conversion rate
+    const res = await axios.get('https://api.exchangerate-api.com/v4/latest/USD');
+    const usdToInrRate = res.data && res.data.rates && res.data.rates.INR ? res.data.rates.INR : 88.6; // fallback to 88.6 if not available
+    // Convert USD amount to INR
+    const inrAmount = Math.round(parseFloat(amount) * usdToInrRate);
+
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(amount * 100), // Stripe requires amount in cents
-      currency: 'usd',
+      amount: inrAmount, // Stripe requires amount in INR paise (smallest unit)
+      currency: 'inr',
       metadata: { 
         email, 
         amount: amount.toString(),
+        usdToInrRate: usdToInrRate.toString(),
         timestamp: new Date().toISOString()
       },
       description: `Wallet top-up for ${email}`
@@ -289,7 +304,7 @@ async createStripePaymentIntent(email, amount) {
 
     return {
       clientSecret: paymentIntent.client_secret,
-      amount: amount,
+      amount: inrAmount,
       publishableKey: 'pk_test_51RF8S1PDMCfPLiP4MURblNRlBlOH1b78WafGCWw5SdZEajjSdWv38SlEci1IMPmY18Ij5V174vBoiCIwkXKTv2uO00aW2X9ymG'
     };
   } catch (error) {
