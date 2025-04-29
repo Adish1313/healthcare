@@ -210,17 +210,35 @@ class EnhancedWalletService {
     }
   }
 
-async addMoney(email, amount, paymentMethodId = null) {
+async addMoney(email, amount, paymentMethodId = null, currency = 'inr') {
   const transaction = await sequelize.transaction();
-  
   try {
-    let patient = await this.patientWallet.findOne({ 
+    let patient = await this.patientWallet.findOne({
       where: { email },
       transaction
     });
 
-    // Yeh log daalo
-    console.log("addMoney called for:", email, "amount:", amount);
+    // Log input
+    console.log("addMoney called for:", email, "amount:", amount, "currency:", currency);
+
+    // Convert USD to INR if needed
+    let finalAmount = parseFloat(amount);
+    let conversionRate = 1;
+    if (currency && currency.toLowerCase() === 'usd') {
+      const axios = require('axios');
+      try {
+        const res = await axios.get('https://api.exchangerate-api.com/v4/latest/USD');
+        conversionRate = res.data && res.data.rates && res.data.rates.INR ? res.data.rates.INR : 88.6;
+        finalAmount = Math.round(parseFloat(amount) * conversionRate);
+        console.log(`Converted USD ${amount} to INR ${finalAmount} at rate ${conversionRate}`);
+      } catch (err) {
+        console.error('Currency conversion error:', err);
+        // fallback to default rate
+        conversionRate = 88.6;
+        finalAmount = Math.round(parseFloat(amount) * conversionRate);
+        console.log(`Fallback: Converted USD ${amount} to INR ${finalAmount} at rate ${conversionRate}`);
+      }
+    }
 
     if (!patient) {
       patient = await this.patientWallet.create({
@@ -230,17 +248,34 @@ async addMoney(email, amount, paymentMethodId = null) {
       }, { transaction });
     }
 
-    // ... (baaki code same)
+    // Add transaction record
+    const transactionId = `ADD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const patientTransaction = {
+      id: transactionId,
+      type: 'credit',
+      amount: finalAmount,
+      description: `Money added to wallet (${currency && currency.toUpperCase() === 'USD' ? 'USD->INR' : 'INR'})`,
+      timestamp: new Date().toISOString(),
+      paymentMethod: paymentMethodId ? 'stripe' : 'manual',
+      originalAmount: amount,
+      originalCurrency: currency,
+      conversionRate: conversionRate
+    };
+
+    const patientTransactions = patient.transactions || [];
+    patientTransactions.push(patientTransaction);
+    patient.transactions = patientTransactions;
+    patient.balance += finalAmount;
     await patient.save({ transaction });
 
-    // Yeh log daalo
+    // Log after save
     console.log("Patient balance after save:", patient.balance);
 
     await transaction.commit();
     console.log("Transaction committed for:", email);
 
-    return { 
-      message: 'Money added successfully', 
+    return {
+      message: 'Money added successfully',
       newBalance: patient.balance,
       transaction: patientTransaction
     };

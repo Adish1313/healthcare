@@ -27,12 +27,12 @@ const enhancedWalletController = {
 
   // Add money to patient wallet
   addMoney: async (req, res) => {
-    const { email, amount, paymentMethodId } = req.body;
+    const { email, amount, paymentMethodId, currency } = req.body;
     if (!email || !amount) {
       return res.status(400).json({ message: 'Email and amount are required' });
     }
     try {
-      const result = await walletService.addMoney(email, amount, paymentMethodId);
+      const result = await walletService.addMoney(email, amount, paymentMethodId, currency || 'inr');
       return res.status(200).json(result);
     } catch (error) {
       return res.status(400).json({ message: error.message });
