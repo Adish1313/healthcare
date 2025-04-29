@@ -1,17 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const { getPatientById, getDoctorById, deductWalletBalance } = require('../controllers/videoCall.controller');
+const mailer = require('../utils/mailer');
 
 // POST /api/video-call/start
 router.post('/start', async (req, res) => {
   try {
     const { patientId, doctorId } = req.body;
+
     const patient = await getPatientById(patientId);
     const doctor = await getDoctorById(doctorId);
 
     if (!patient || !doctor) {
       return res.status(404).json({ message: 'Patient or Doctor not found' });
     }
+
     if (patient.walletBalance < 500) {
       return res.status(400).json({ message: 'Insufficient balance' });
     }
@@ -20,14 +23,15 @@ router.post('/start', async (req, res) => {
     await deductWalletBalance(patientId, 500);
 
     // Generate unique Jitsi room link
-    const room = healthoasis-${Date.now()}-${Math.floor(Math.random()*10000)};
-    const callLink = https://meet.jit.si/${room};
+    const room = `healthoasis-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
+    const callLink = `https://meet.jit.si/${room}`;
 
     // Send email to doctor with the video call link
-    await require('../utils/mailer').sendMail({
+    await mailer.sendMail({
       to: doctor.email,
       subject: 'New Video Call Request',
-      html: <p>You have a new video call request from patient ${patient.email}.<br>Click <a href="${callLink}">here</a> to join the call.</p>
+      html: `<p>You have a new video call request from patient <strong>${patient.email}</strong>.<br>
+             Click <a href="${callLink}">here</a> to join the call.</p>`
     });
 
     return res.json({ callLink });
