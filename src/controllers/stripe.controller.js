@@ -332,7 +332,7 @@ module.exports = {
                 name: 'Wallet Top-Up',
                 description: `Top-up wallet for ${email}`
               },
-              unit_amount: Math.round(parseFloat(amount)), // cents (important fix)
+              unit_amount: Math.round(parseFloat(amount) * 100), // cents (important fix)
             },
             quantity: 1
           }
@@ -444,10 +444,9 @@ module.exports = {
       if (event.type === 'checkout.session.completed' || event.type === 'payment_intent.succeeded') {
         const metadata = object.metadata || {};
         const email = metadata.email;
-        const amount = event.type === 'checkout.session.completed'
-          ? parseFloat(metadata.amount)
-          : (object.amount_received ? object.amount_received / 100 : 0);
-
+        const amount = object.amount_total
+        ? object.amount_total / 100
+        : (object.amount_received ? object.amount_received / 100 : 0);
         if (!email) {
           console.error('❌ Missing email in metadata.');
           return res.status(200).json({ received: true, note: 'Missing email in metadata.' });
