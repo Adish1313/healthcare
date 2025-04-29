@@ -332,7 +332,7 @@ module.exports = {
                 name: 'Wallet Top-Up',
                 description: `Top-up wallet for ${email}`
               },
-              unit_amount: Math.round(parseFloat(amount) * 100), // cents (important fix)
+              unit_amount: Math.round(parseFloat(amount)), // cents (important fix)
             },
             quantity: 1
           }
