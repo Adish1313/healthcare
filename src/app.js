@@ -95,7 +95,7 @@ app.use('/api/contact-info', contactInfoRoutes);
 app.use('/api/working-hours', workingHoursRoutes);
 app.use('/api/wallet', enhancedWalletRoutes);
 app.use('/api/stripe', stripeRoutes);
-app.use('/api/video-call', require('./routes/videoCall.routes'));
+app.use('/api/video-call', videoCallRoutes);
 // Root route
 app.get('/', (req, res) => {
     res.json({
@@ -131,7 +131,8 @@ app.get('/', (req, res) => {
                 adminHistory: '/api/wallet/admin-history [GET]',
                 transfer: '/api/wallet/transfer [POST]',
                 createPaymentIntent: '/api/wallet/create-payment-intent [POST]',
-                webhook: '/api/wallet/webhook [POST]'
+                webhook: '/api/wallet/webhook [POST]',
+                videoCall: '/api/video-call [POST]'
             }
         }
     });
