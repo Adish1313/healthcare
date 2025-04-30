@@ -8,6 +8,7 @@ const {
   VIDEO_CALL_FEE 
 } = require('../controllers/videoCall.controller');
 const mailer = require('../utils/mailer');
+const nodemailer = require('nodemailer');
 
 // POST /api/video-call/start
 router.post('/start', async (req, res) => {
@@ -33,17 +34,28 @@ router.post('/start', async (req, res) => {
 
     // Generate unique room ID
     const roomId = generateRoomId();
-    const videoCallLink = `ttps://oasis-health-reborn.com/video-call/${roomId}`
+    const videoCallLink = `{process.env.CLIENT_URL}/video-call/${roomId}`
 
     // Process payment
     await processVideoCallPayment(email, doctorName, VIDEO_CALL_FEE);
 
     // Send email with video call link
-    await mailer.sendMail({
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
       to: email,
       subject: 'Video Call Link for Appointment',
-      html: `Dear Doctor ${doctorName},<br><br>Please find your video call link below:<br>${videoCallLink}<br><br>Best regards,<br>Oasis Health Team`
+      html: `Dear Doctor ${doctorName},<br><br>Please find your video call link below:<br>${videoCallLink}<br><br>Best regards,<br>Oasis Health Team`    };
+
+    // Send email using SMTP
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+      }
     });
+
+    await transporter.sendMail(mailOptions);
 
     return res.json({ 
       success: true,
@@ -52,7 +64,10 @@ router.post('/start', async (req, res) => {
     });
   } catch (error) {
     console.error('Video call booking error:', error);
-    res.status(500).json({ message: 'Failed to book video call' });
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to book video call'
+    });
   }
 });
 
