@@ -38,6 +38,7 @@ const messageRoutes = require('./routes/messageRoutes');
 const contactInfoRoutes = require('./routes/contactInfoRoutes');
 const workingHoursRoutes = require('./routes/workingHoursRoutes');
 const enhancedWalletRoutes = require('./routes/enhanced-wallet.routes');
+const videoCallRoutes = require('./routes/videoCall.routes');
 
 // Create express app
 const app = express();
