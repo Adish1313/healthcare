@@ -40,15 +40,9 @@ router.post('/start', async (req, res) => {
     await processVideoCallPayment(email, doctorName, VIDEO_CALL_FEE);
 
     // Send email with video call link
-    // First get doctor's email from doctorName
-    const doctor = await Doctor.findOne({ where: { name: doctorName } });
-    if (!doctor) {
-      return res.status(404).json({ message: 'Doctor not found' });
-    }
-
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: doctor.email,  // Sending to doctor's email
+      to: email,  // Using the email from request body (which is doctor's email)
       subject: 'Video Call Link for Appointment',
       html: `Dear Doctor ${doctorName},<br><br>You have a video call scheduled. Please find the video call link below:<br>${videoCallLink}<br>`
     };
