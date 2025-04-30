@@ -76,7 +76,7 @@ async function processVideoCallPayment(patientId, doctorId, amount) {
     patientTransactions.push({
       type: 'debit',
       amount,
-      description: `Video call with Dr. ${doctor.name}`,
+      description: 'Video call with Dr. ${doctor.name}',
       timestamp: new Date()
     });
     patientWallet.transactions = patientTransactions;
@@ -89,7 +89,7 @@ async function processVideoCallPayment(patientId, doctorId, amount) {
     doctorTransactions.push({
       type: 'credit',
       amount,
-      description: `Video call with patient ${patient.name || patient.email}`,
+      description: 'Video call with patient ${patient.name || patient.email}',
       timestamp: new Date()
     });
     doctorWallet.transactions = doctorTransactions;
