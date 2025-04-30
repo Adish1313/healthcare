@@ -1,9 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const walletController = require('../wallet/wallet.controller');
+const walletController = require('../controllers/wallet.controller');
 
 // Patient wallet routes
 router.post('/login', walletController.login);
+
+// New or modified login/check endpoint
+router.post('/api/wallet/login', walletController.loginOrCheckWallet);
 router.get('/balance', walletController.getWalletBalance);
 router.post('/add-money', walletController.addMoney);
 router.post('/book', walletController.bookAppointment);
