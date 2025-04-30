@@ -34,17 +34,24 @@ router.post('/start', async (req, res) => {
 
     // Generate unique room ID
     const roomId = generateRoomId();
-    const videoCallLink = `{process.env.CLIENT_URL}/video-call/${roomId}`
+    const videoCallLink = `${process.env.CLIENT_URL}/video-call/${roomId}`;
 
     // Process payment
     await processVideoCallPayment(email, doctorName, VIDEO_CALL_FEE);
 
     // Send email with video call link
+    // First get doctor's email from doctorName
+    const doctor = await Doctor.findOne({ where: { name: doctorName } });
+    if (!doctor) {
+      return res.status(404).json({ message: 'Doctor not found' });
+    }
+
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: email,
+      to: doctor.email,  // Sending to doctor's email
       subject: 'Video Call Link for Appointment',
-      html: `Dear Doctor ${doctorName},<br><br>Please find your video call link below:<br>${videoCallLink}<br><br>Best regards,<br>Oasis Health Team`    };
+      html: `Dear Doctor ${doctorName},<br><br>You have a video call scheduled. Please find the video call link below:<br>${videoCallLink}<br>`
+    };
 
     // Send email using SMTP
     const transporter = nodemailer.createTransport({
