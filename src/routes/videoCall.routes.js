@@ -12,32 +12,47 @@ const mailer = require('../utils/mailer');
 // POST /api/video-call/start
 router.post('/start', async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ message: 'Email is required' });
+    const { email, doctorName } = req.body;
+    if (!email || !doctorName) {
+      return res.status(400).json({ message: 'Missing required fields: email, doctorName' });
     }
 
-    // Generate unique Jitsi room link
-    const room = generateRoomId();
-    const callLink = `https://meet.jit.si/${room}`;
+    // Check wallet balance
+    const wallet = await PatientWallet.findOne({ where: { email } });
+    if (!wallet) {
+      return res.status(404).json({ message: 'Wallet not found' });
+    }
 
-    // Send email with the video call link
-    try {
-      await mailer.sendMail({
-        to: email,
-        subject: 'Your Video Call Link',
-        html: `<p>Your video call is ready.<br>
-               Click <a href="${callLink}">here</a> to join the call.</p>`
+    if (wallet.balance < VIDEO_CALL_FEE) {
+      return res.status(400).json({ 
+        message: 'Insufficient balance',
+        requiredBalance: VIDEO_CALL_FEE,
+        currentBalance: wallet.balance
       });
-    } catch (emailError) {
-      console.error('Email sending error:', emailError);
-      return res.status(500).json({ message: 'Failed to send email' });
     }
 
-    return res.json({ success: true, callLink });
+    // Generate unique room ID
+    const roomId = generateRoomId();
+    const videoCallLink = `ttps://oasis-health-reborn.com/video-call/${roomId}`
+
+    // Process payment
+    await processVideoCallPayment(email, doctorName, VIDEO_CALL_FEE);
+
+    // Send email with video call link
+    await mailer.sendMail({
+      to: email,
+      subject: 'Video Call Link for Appointment',
+      html: `Dear Doctor ${doctorName},<br><br>Please find your video call link below:<br>${videoCallLink}<br><br>Best regards,<br>Oasis Health Team`
+    });
+
+    return res.json({ 
+      success: true,
+      message: 'Video call booked successfully',
+      link: videoCallLink
+    });
   } catch (error) {
-    console.error('Video call error:', error);
-    res.status(500).json({ message: 'Internal server error' });
+    console.error('Video call booking error:', error);
+    res.status(500).json({ message: 'Failed to book video call' });
   }
 });
 
