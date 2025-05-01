@@ -121,6 +121,7 @@ app.get('/', (req, res) => {
             messages: '/api/messages',
             contactInfo: '/api/contact-info',
             workingHours: '/api/working-hours',
+            videoCall: '/api/video-call [POST]',
             wallet: {
                 login: '/api/wallet/login [POST]',
                 balance: '/api/wallet/balance?email=user@example.com [GET]',
