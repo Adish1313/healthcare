@@ -93,16 +93,8 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
     doctorWallet.transactions = doctorTransactions;
     
     // Save both wallets
-    await patientWallet.save({ transaction: t });
-    await doctorWallet.save({ transaction: t });
-    
-    // Commit transaction
-    await t.commit();
-    
     return { success: true };
   } catch (error) {
-    // Rollback transaction on error
-    await t.rollback();
     throw error;
   }
 }
