@@ -13,13 +13,13 @@ const nodemailer = require('nodemailer');
 // POST /api/video-call/start
 router.post('/start', async (req, res) => {
   try {
-    const { email, doctorName } = req.body;
-    if (!email || !doctorName) {
-      return res.status(400).json({ message: 'Missing required fields: email, doctorName' });
+    const { email, doctorName, user_email } = req.body;
+    if (!email || !doctorName || !user_email) {
+      return res.status(400).json({ message: 'Missing required fields: email, doctorName, user_email' });
     }
 
-    // Check wallet balance
-    const wallet = await PatientWallet.findOne({ where: { email } });
+    // Check wallet balance of user's email
+    const wallet = await PatientWallet.findOne({ where: { email: user_email } });
     if (!wallet) {
       return res.status(404).json({ message: 'Wallet not found' });
     }
@@ -36,10 +36,10 @@ router.post('/start', async (req, res) => {
     const roomId = generateRoomId();
     const videoCallLink = `${process.env.CLIENT_URL}/video-call/${roomId}`;
 
-    // Process payment
-    await processVideoCallPayment(email, doctorName, VIDEO_CALL_FEE);
+    // Process payment from user's email
+    await processVideoCallPayment(user_email, doctorName, VIDEO_CALL_FEE);
 
-    // Send email with video call link
+    // Send email to doctor's email
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,  // This is the doctor's email
