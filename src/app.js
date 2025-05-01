@@ -3,7 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const sequelize = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
-
+require('dotenv').config();
 // Wallet and Stripe models
 const AdminWallet = require('./models/adminWallet.model');
 const DoctorWallet = require('./models/doctorWallet.model');

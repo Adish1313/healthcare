@@ -42,7 +42,7 @@ router.post('/start', async (req, res) => {
     // Send email with video call link
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: email,  // Using the email from request body (which is doctor's email)
+      to: email,  // This is the doctor's email
       subject: 'Video Call Link for Appointment',
       html: `Dear Doctor ${doctorName},<br><br>You have a video call scheduled. Please find the video call link below:<br>${videoCallLink}<br>`
     };
