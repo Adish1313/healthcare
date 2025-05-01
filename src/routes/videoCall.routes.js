@@ -56,7 +56,7 @@ router.post('/start', async (req, res) => {
       from: process.env.EMAIL_USER,
       to: doctor_email,  // This is the doctor's email
       subject: 'Video Call Link for Appointment',
-      html: `Dear Doctor ${doctorName},<br><br>You have a video call scheduled. Please find the video call link below:<br>${videoCallLink}<br>`
+      html: `Dear Doctor ${doctorName},<br><br>You have a video call scheduled. Please find the video call link below:<br>https://meet.jit.si/healthoasis-doctor-consult<br>`
     };
 
     console.log('Sending email to:', doctor_email);
