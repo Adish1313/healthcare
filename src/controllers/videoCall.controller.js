@@ -1,4 +1,5 @@
-const { Patient, Doctor, Sequelize } = require('../models');
+const { Patient, Doctor } = require('../models');
+const sequelize = require('../config/database');
 const PatientWallet = require('../models/patientWallet.model');
 const DoctorWallet = require('../models/doctorWallet.model');
 const config = require('../config/config'); // Assuming you have a config file
@@ -37,7 +38,7 @@ async function getDoctorById(doctorId) {
 // Process video call payment
 async function processVideoCallPayment(patientId, doctorId, amount) {
   // Use a transaction to ensure both operations succeed or fail together
-  const t = await Sequelize.transaction();
+  const t = await sequelize.transaction();
   
   try {
     // Get patient with wallet
