@@ -1,5 +1,4 @@
-const { Patient, Doctor } = require('../models');
-const sequelize = require('../config/database');
+const { Patient, Doctor, Sequelize } = require('../models');
 const PatientWallet = require('../models/patientWallet.model');
 const DoctorWallet = require('../models/doctorWallet.model');
 const config = require('../config/config'); // Assuming you have a config file
@@ -36,50 +35,48 @@ async function getDoctorById(doctorId) {
 }
 
 // Process video call payment
-async function processVideoCallPayment(patientId, doctorId, amount) {
-  // Use a transaction to ensure both operations succeed or fail together
-  const t = await sequelize.transaction();
-  
+async function processVideoCallPayment(user_email, doctorName, amount) {
   try {
-    // Get patient with wallet
-    const patient = await getPatientById(patientId);
-    if (!patient || !patient.wallet) {
-      throw new Error('Patient or patient wallet not found');
+    // Get patient's wallet
+    const wallet = await PatientWallet.findOne({ where: { email: user_email } });
+    if (!wallet) {
+      throw new Error('Wallet not found');
     }
     
     // Check sufficient balance
-    if (patient.wallet.balance < amount) {
+    if (wallet.balance < amount) {
       throw new Error('Insufficient balance');
     }
-    
-    // Get doctor with wallet
-    const doctor = await getDoctorById(doctorId);
+
+    // Deduct payment from patient's wallet
+    await PatientWallet.update(
+      { balance: wallet.balance - amount },
+      { where: { email: user_email } }
+    );
+
+    // Get doctor's wallet
+    const doctor = await Doctor.findOne({ where: { name: doctorName } });
     if (!doctor) {
       throw new Error('Doctor not found');
     }
-    
-    // Create doctor wallet if it doesn't exist
-    let doctorWallet = doctor.wallet;
+
+    const doctorWallet = await DoctorWallet.findOne({ where: { doctorId: doctor.id } });
     if (!doctorWallet) {
-      doctorWallet = await DoctorWallet.create({
-        doctorId,
-        balance: 0,
-        transactions: []
-      }, { transaction: t });
+      throw new Error('Doctor wallet not found');
     }
-    
-    // Deduct from patient wallet
-    const patientWallet = patient.wallet;
-    patientWallet.balance -= amount;
-    
-    // Add transaction record
-    const patientTransactions = patientWallet.transactions;
-    patientTransactions.push({
-      type: 'debit',
-      amount,
-      description: 'Video call with Dr. ${doctor.name}',
-      timestamp: new Date()
-    });
+
+    // Add payment to doctor's wallet
+    await DoctorWallet.update(
+      { balance: doctorWallet.balance + amount },
+      { where: { doctorId: doctor.id } }
+    );
+
+    return {
+      success: true,
+      message: 'Payment processed successfully',
+      patientBalance: wallet.balance - amount,
+      doctorBalance: doctorWallet.balance + amount
+    };
     patientWallet.transactions = patientTransactions;
     
     // Credit doctor wallet
