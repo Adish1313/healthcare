@@ -139,11 +139,10 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
   }
 }
 
-// Generate a unique room ID for video calls
-function generateRoomId() {
-  const timestamp = Date.now();
-  const randomNum = Math.floor(Math.random() * 10000);
-  return `healthoasis-${timestamp}-${randomNum}`;
+// Generate a fixed room ID for video calls
+async function generateRoomId() {
+  // Return a fixed room ID for all video calls
+  return 'healthoasis-doctor-consult';
 }
 
 module.exports = {
