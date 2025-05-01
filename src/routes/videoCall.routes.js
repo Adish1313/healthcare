@@ -9,7 +9,7 @@ const {
 } = require('../controllers/videoCall.controller');
 const mailer = require('../utils/mailer');
 const nodemailer = require('nodemailer');
-const { Sequelize } = require('sequelize');
+const PatientWallet = require('../models/patientWallet.model');
 
 // POST /api/video-call/start
 router.post('/start', async (req, res) => {
