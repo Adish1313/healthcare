@@ -14,13 +14,13 @@ const PatientWallet = require('../models/patientWallet.model');
 // POST /api/video-call/start
 router.post('/start', async (req, res) => {
   try {
-    const { email, doctorName, user_email } = req.body;
-    if (!email || !doctorName || !user_email) {
-      return res.status(400).json({ message: 'Missing required fields: email, doctorName, user_email' });
+    const { doctor_email, doctorName, user_email } = req.body;
+    if (!doctor_email || !doctorName || !user_email) {
+      return res.status(400).json({ message: 'Missing required fields: doctor_email, doctorName, user_email' });
     }
 
     console.log('Request received:', {
-      email, doctorName, user_email
+      doctor_email, doctorName, user_email
     });
 
     // Check wallet balance of user's email
@@ -54,12 +54,12 @@ router.post('/start', async (req, res) => {
     // Send email to doctor's email
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: email,  // This is the doctor's email
+      to: doctor_email,  // This is the doctor's email
       subject: 'Video Call Link for Appointment',
       html: `Dear Doctor ${doctorName},<br><br>You have a video call scheduled. Please find the video call link below:<br>${videoCallLink}<br>`
     };
 
-    console.log('Sending email to:', email);
+    console.log('Sending email to:', doctor_email);
 
     // Send email using SMTP
     const transporter = nodemailer.createTransport({
