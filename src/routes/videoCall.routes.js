@@ -18,13 +18,22 @@ router.post('/start', async (req, res) => {
       return res.status(400).json({ message: 'Missing required fields: email, doctorName, user_email' });
     }
 
+    console.log('Request received:', {
+      email, doctorName, user_email
+    });
+
     // Check wallet balance of user's email
     const wallet = await PatientWallet.findOne({ where: { email: user_email } });
     if (!wallet) {
+      console.error('Wallet not found for user:', user_email);
       return res.status(404).json({ message: 'Wallet not found' });
     }
 
     if (wallet.balance < VIDEO_CALL_FEE) {
+      console.error('Insufficient balance:', {
+        required: VIDEO_CALL_FEE,
+        current: wallet.balance
+      });
       return res.status(400).json({ 
         message: 'Insufficient balance',
         requiredBalance: VIDEO_CALL_FEE,
@@ -36,6 +45,8 @@ router.post('/start', async (req, res) => {
     const roomId = generateRoomId();
     const videoCallLink = `${process.env.CLIENT_URL}/video-call/${roomId}`;
 
+    console.log('Generated video call link:', videoCallLink);
+
     // Process payment from user's email
     await processVideoCallPayment(user_email, doctorName, VIDEO_CALL_FEE);
 
@@ -46,6 +57,8 @@ router.post('/start', async (req, res) => {
       subject: 'Video Call Link for Appointment',
       html: `Dear Doctor ${doctorName},<br><br>You have a video call scheduled. Please find the video call link below:<br>${videoCallLink}<br>`
     };
+
+    console.log('Sending email to:', email);
 
     // Send email using SMTP
     const transporter = nodemailer.createTransport({
@@ -67,7 +80,7 @@ router.post('/start', async (req, res) => {
     console.error('Video call booking error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to book video call'
+      message: error.message || 'Failed to book video call'
     });
   }
 });
