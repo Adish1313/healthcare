@@ -39,6 +39,7 @@ const contactInfoRoutes = require('./routes/contactInfoRoutes');
 const workingHoursRoutes = require('./routes/workingHoursRoutes');
 const enhancedWalletRoutes = require('./routes/enhanced-wallet.routes');
 const videoCallRoutes = require('./routes/videoCall.routes');
+const transactionRoutes = require('./routes/transaction.routes');
 
 // Create express app
 const app = express();
@@ -96,6 +97,7 @@ app.use('/api/working-hours', workingHoursRoutes);
 app.use('/api/wallet', enhancedWalletRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/video-call', videoCallRoutes);
+app.use('/api/transactions', transactionRoutes);
 // Root route
 app.get('/', (req, res) => {
     res.json({
@@ -134,6 +136,9 @@ app.get('/', (req, res) => {
                 createPaymentIntent: '/api/wallet/create-payment-intent [POST]',
                 webhook: '/api/wallet/webhook [POST]',
                 videoCall: '/api/video-call [POST]'
+            },
+            transactions: {
+                debit: '/api/transactions/debit?email=user@example.com [GET]',
             }
         }
     });

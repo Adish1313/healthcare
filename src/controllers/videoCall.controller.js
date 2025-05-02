@@ -37,6 +37,10 @@ async function getDoctorById(doctorId) {
 // Process video call payment
 async function processVideoCallPayment(user_email, doctorName, amount) {
   try {
+    // Import Transaction model
+    const Transaction = require('../wallet/transaction.model');
+    const { v4: uuidv4 } = require('uuid');
+    
     // Get patient's wallet
     const wallet = await PatientWallet.findOne({ where: { email: user_email } });
     if (!wallet) {
@@ -48,9 +52,13 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
       throw new Error('Insufficient balance');
     }
 
+    // Important: For INR currency, we don't apply any conversion
+    // This fixes the bug where 50 INR was being treated as 5000 INR
+    const finalAmount = amount; // No conversion for INR
+
     // Deduct payment from patient's wallet
     await PatientWallet.update(
-      { balance: wallet.balance - amount },
+      { balance: wallet.balance - finalAmount },
       { where: { email: user_email } }
     );
 
@@ -62,6 +70,10 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
         `%${doctorName.toLowerCase()}%`
       )
     });
+    
+    // Generate transaction ID
+    const transactionId = uuidv4();
+    const timestamp = new Date();
     
     if (!doctor) {
       console.log(`Doctor not found with name: ${doctorName}`);
@@ -82,14 +94,34 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
       
       // Add payment to doctor's wallet
       await DoctorWallet.update(
-        { balance: doctorWallet.balance + amount },
+        { balance: doctorWallet.balance + finalAmount },
         { where: { doctorId: tempDoctorId } }
       );
+      
+      // Create transaction record in the Transaction table
+      await Transaction.create({
+        id: transactionId,
+        type: 'debit',
+        amount: finalAmount,
+        description: `Video call payment to Dr. ${doctorName}`,
+        senderType: 'patient',
+        senderId: user_email,
+        receiverType: 'doctor',
+        receiverId: tempDoctorId.toString(),
+        paymentMethod: 'wallet',
+        status: 'completed',
+        metadata: {
+          doctorName: doctorName,
+          transactionTime: timestamp,
+          service: 'video_call'
+        }
+      });
       
       return {
         success: true,
         message: 'Payment processed successfully (doctor created)',
-        patientBalance: wallet.balance - amount
+        patientBalance: wallet.balance - finalAmount,
+        transactionId: transactionId
       };
     }
     
@@ -107,15 +139,35 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
 
     // Add payment to doctor's wallet
     await DoctorWallet.update(
-      { balance: doctorWallet.balance + amount },
+      { balance: doctorWallet.balance + finalAmount },
       { where: { doctorId: doctor.id } }
     );
+
+    // Create transaction record in the Transaction table
+    await Transaction.create({
+      id: transactionId,
+      type: 'debit',
+      amount: finalAmount,
+      description: `Video call payment to Dr. ${doctorName}`,
+      senderType: 'patient',
+      senderId: user_email,
+      receiverType: 'doctor',
+      receiverId: doctor.id.toString(),
+      paymentMethod: 'wallet',
+      status: 'completed',
+      metadata: {
+        doctorName: doctorName,
+        transactionTime: timestamp,
+        service: 'video_call'
+      }
+    });
 
     return {
       success: true,
       message: 'Payment processed successfully',
-      patientBalance: wallet.balance - amount,
-      doctorBalance: doctorWallet.balance + amount
+      patientBalance: wallet.balance - finalAmount,
+      doctorBalance: doctorWallet.balance + finalAmount,
+      transactionId: transactionId
     };
     patientWallet.transactions = patientTransactions;
     
