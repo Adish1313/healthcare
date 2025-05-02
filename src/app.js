@@ -139,6 +139,8 @@ app.get('/', (req, res) => {
             },
             transactions: {
                 debit: '/api/transactions/debit?email=user@example.com [GET]',
+                creditDoctor: '/api/transactions/credit?receiverType=doctor&receiverId=1 [GET]',
+                creditAdmin: '/api/transactions/credit?receiverType=admin&receiverId=1 [GET]'
             }
         }
     });
