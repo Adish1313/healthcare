@@ -40,6 +40,7 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
     // Import Transaction model
     const Transaction = require('../wallet/transaction.model');
     const { v4: uuidv4 } = require('uuid');
+    const AdminWallet = require('../models/adminWallet.model');
     
     // Get patient's wallet
     const wallet = await PatientWallet.findOne({ where: { email: user_email } });
@@ -56,6 +57,10 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
     // This fixes the bug where 50 INR was being treated as 5000 INR
     const finalAmount = amount; // No conversion for INR
 
+    // Calculate doctor and admin shares (70% to doctor, 30% to admin)
+    const doctorShare = finalAmount * 0.7;
+    const adminShare = finalAmount * 0.3;
+
     // Deduct payment from patient's wallet
     await PatientWallet.update(
       { balance: wallet.balance - finalAmount },
@@ -71,9 +76,47 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
       )
     });
     
-    // Generate transaction ID
-    const transactionId = uuidv4();
+    // Generate transaction IDs
+    const patientTransactionId = uuidv4();
+    const doctorTransactionId = uuidv4();
+    const adminTransactionId = uuidv4();
     const timestamp = new Date();
+    
+    // Get admin wallet (ID is always 1)
+    let adminWallet = await AdminWallet.findOne({ where: { id: 1 } });
+    if (!adminWallet) {
+      adminWallet = await AdminWallet.create({
+        id: 1,
+        balance: 0
+      });
+    }
+    
+    // Add admin share to admin wallet
+    await AdminWallet.update(
+      { balance: adminWallet.balance + adminShare },
+      { where: { id: 1 } }
+    );
+    
+    // Create admin credit transaction
+    await Transaction.create({
+      id: adminTransactionId,
+      type: 'credit',
+      amount: adminShare,
+      description: `Admin commission from video call payment (${user_email})`,
+      senderType: 'patient',
+      senderId: user_email,
+      receiverType: 'admin',
+      receiverId: '1',
+      paymentMethod: 'wallet',
+      status: 'completed',
+      metadata: {
+        patientEmail: user_email,
+        doctorName: doctorName,
+        transactionTime: timestamp,
+        service: 'video_call',
+        share: '30%'
+      }
+    });
     
     if (!doctor) {
       console.log(`Doctor not found with name: ${doctorName}`);
@@ -92,15 +135,15 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
         });
       }
       
-      // Add payment to doctor's wallet
+      // Add doctor share to doctor's wallet
       await DoctorWallet.update(
-        { balance: doctorWallet.balance + finalAmount },
+        { balance: doctorWallet.balance + doctorShare },
         { where: { doctorId: tempDoctorId } }
       );
       
-      // Create transaction record in the Transaction table
+      // Create patient debit transaction
       await Transaction.create({
-        id: transactionId,
+        id: patientTransactionId,
         type: 'debit',
         amount: finalAmount,
         description: `Video call payment to Dr. ${doctorName}`,
@@ -117,11 +160,34 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
         }
       });
       
+      // Create doctor credit transaction
+      await Transaction.create({
+        id: doctorTransactionId,
+        type: 'credit',
+        amount: doctorShare,
+        description: `Video call payment received from ${user_email}`,
+        senderType: 'patient',
+        senderId: user_email,
+        receiverType: 'doctor',
+        receiverId: tempDoctorId.toString(),
+        paymentMethod: 'wallet',
+        status: 'completed',
+        metadata: {
+          patientEmail: user_email,
+          doctorName: doctorName,
+          transactionTime: timestamp,
+          service: 'video_call',
+          share: '70%'
+        }
+      });
+      
       return {
         success: true,
         message: 'Payment processed successfully (doctor created)',
         patientBalance: wallet.balance - finalAmount,
-        transactionId: transactionId
+        doctorShare: doctorShare,
+        adminShare: adminShare,
+        transactionId: patientTransactionId
       };
     }
     
@@ -137,15 +203,15 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
       });
     }
 
-    // Add payment to doctor's wallet
+    // Add doctor share to doctor's wallet
     await DoctorWallet.update(
-      { balance: doctorWallet.balance + finalAmount },
+      { balance: doctorWallet.balance + doctorShare },
       { where: { doctorId: doctor.id } }
     );
 
-    // Create transaction record in the Transaction table
+    // Create patient debit transaction
     await Transaction.create({
-      id: transactionId,
+      id: patientTransactionId,
       type: 'debit',
       amount: finalAmount,
       description: `Video call payment to Dr. ${doctorName}`,
@@ -161,13 +227,35 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
         service: 'video_call'
       }
     });
+    
+    // Create doctor credit transaction
+    await Transaction.create({
+      id: doctorTransactionId,
+      type: 'credit',
+      amount: doctorShare,
+      description: `Video call payment received from ${user_email}`,
+      senderType: 'patient',
+      senderId: user_email,
+      receiverType: 'doctor',
+      receiverId: doctor.id.toString(),
+      paymentMethod: 'wallet',
+      status: 'completed',
+      metadata: {
+        patientEmail: user_email,
+        doctorName: doctorName,
+        transactionTime: timestamp,
+        service: 'video_call',
+        share: '70%'
+      }
+    });
 
     return {
       success: true,
       message: 'Payment processed successfully',
       patientBalance: wallet.balance - finalAmount,
-      doctorBalance: doctorWallet.balance + finalAmount,
-      transactionId: transactionId
+      doctorShare: doctorShare,
+      adminShare: adminShare,
+      transactionId: patientTransactionId
     };
     patientWallet.transactions = patientTransactions;
     
