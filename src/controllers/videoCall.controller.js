@@ -97,10 +97,6 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
       { where: { id: 1 } }
     );
     
-    // Format date and time
-    const formattedDate = timestamp.toISOString().split('T')[0];
-    const formattedTime = timestamp.toTimeString().split(' ')[0];
-    
     // Create admin credit transaction
     await Transaction.create({
       id: adminTransactionId,
@@ -118,10 +114,7 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
         doctorName: doctorName,
         transactionTime: timestamp,
         service: 'video_call',
-        share: '30%',
-        date: formattedDate,
-        time: formattedTime,
-        timestamp: timestamp.toISOString()
+        share: '30%'
       }
     });
     
@@ -163,10 +156,7 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
         metadata: {
           doctorName: doctorName,
           transactionTime: timestamp,
-          service: 'video_call',
-          date: formattedDate,
-          time: formattedTime,
-          timestamp: timestamp.toISOString()
+          service: 'video_call'
         }
       });
       
@@ -187,10 +177,7 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
           doctorName: doctorName,
           transactionTime: timestamp,
           service: 'video_call',
-          share: '70%',
-          date: formattedDate,
-          time: formattedTime,
-          timestamp: timestamp.toISOString()
+          share: '70%'
         }
       });
       
@@ -237,10 +224,7 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
       metadata: {
         doctorName: doctorName,
         transactionTime: timestamp,
-        service: 'video_call',
-        date: formattedDate,
-        time: formattedTime,
-        timestamp: timestamp.toISOString()
+        service: 'video_call'
       }
     });
     
@@ -261,10 +245,7 @@ async function processVideoCallPayment(user_email, doctorName, amount) {
         doctorName: doctorName,
         transactionTime: timestamp,
         service: 'video_call',
-        share: '70%',
-        date: formattedDate,
-        time: formattedTime,
-        timestamp: timestamp.toISOString()
+        share: '70%'
       }
     });
 
